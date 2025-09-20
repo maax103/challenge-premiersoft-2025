@@ -19,5 +19,10 @@ class DatabaseSeeder extends Seeder
             'name' => 'Test User',
             'email' => 'test@example.com',
         ]);
+
+        // Seed estados from CSV
+        $this->call([
+            EstadoSeeder::class,
+        ]);
     }
 }

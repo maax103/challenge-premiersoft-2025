@@ -13,11 +13,23 @@ services:
         depends_on:
             - redis
             - node
+            - mysql
         networks:
             - laravel
         environment:
             XDEBUG_MODE: debug,develop
             XDEBUG_CONFIG: "client_host=host.docker.internal client_port=9003"
+            # Laravel DB/Cache configuration to use docker services
+            APP_ENV: local
+            APP_DEBUG: "true"
+            APP_KEY: "base64:3H9y5VJ0hA1g2K8vLw4n1qS9mQe7XyZ0jVdF6oPlq9o="
+            DB_CONNECTION: mysql
+            DB_HOST: mysql
+            DB_PORT: 3306
+            DB_DATABASE: laravel
+            DB_USERNAME: laravel
+            DB_PASSWORD: secret
+            REDIS_HOST: redis
         extra_hosts:
             - "host.docker.internal:host-gateway"
 
@@ -60,6 +72,11 @@ services:
             - "3306:3306"
         networks:
             - laravel
+        healthcheck:
+            test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-uroot", "-proot"]
+            interval: 5s
+            timeout: 5s
+            retries: 20
 
     phpmyadmin:
         image: phpmyadmin/phpmyadmin
