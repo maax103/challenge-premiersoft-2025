@@ -18,6 +18,7 @@ interface BrazilMapProps {
 export default function BrazilMap({ onDrilldown }: BrazilMapProps) {
   const mapRef = useRef<Map | null>(null);
   const geoLayerRef = useRef<L.GeoJSON | null>(null);
+  const activeLayerRef = useRef<L.Layer | null>(null);
   const [selectedState, setSelectedState] = useState<string | null>(null);
   const [selectedCity, setSelectedCity] = useState<string | null>(null);
   const [isStateView, setIsStateView] = useState(false);
@@ -31,6 +32,34 @@ export default function BrazilMap({ onDrilldown }: BrazilMapProps) {
   const { statesData: topoJsonData, isLoading: loadingTopoJson } = useTopoJsonData();
 
   const isLoading = loadingStateStats || loadingCityStats || loadingCitiesGeoJson || loadingTopoJson;
+
+  // Helper functions for active layer styling
+  const setActiveLayer = (layer: L.Layer) => {
+    // Reset previous active layer
+    if (activeLayerRef.current && geoLayerRef.current) {
+      geoLayerRef.current.resetStyle(activeLayerRef.current);
+    }
+    
+    // Set new active layer with highlighted style
+    if (layer) {
+      (layer as any).setStyle({
+        fillColor: '#FF5722',
+        weight: 4,
+        opacity: 1,
+        color: '#FF5722',
+        dashArray: '',
+        fillOpacity: 0.8
+      });
+      activeLayerRef.current = layer;
+    }
+  };
+
+  const resetActiveLayer = () => {
+    if (activeLayerRef.current && geoLayerRef.current) {
+      geoLayerRef.current.resetStyle(activeLayerRef.current);
+      activeLayerRef.current = null;
+    }
+  };
 
   // Initialize map and load base TopoJSON data only once
   useEffect(() => {
@@ -64,22 +93,30 @@ export default function BrazilMap({ onDrilldown }: BrazilMapProps) {
             
             setSelectedState(stateCode.toString());
             setSelectedCity(null); // Reset city selection
+            
+            // Set this layer as active with visual highlighting
+            setActiveLayer(layer);
           });
 
           // Highlight on hover
           layer.on('mouseover', (e) => {
             const target = e.target;
-            target.setStyle({
-              weight: 3,
-              color: '#666',
-              dashArray: '',
-              fillOpacity: 0.9
-            });
-            target.bringToFront();
+            if (target !== activeLayerRef.current) {
+              target.setStyle({
+                weight: 3,
+                color: '#666',
+                dashArray: '',
+                fillOpacity: 0.9
+              });
+              target.bringToFront();
+            }
           });
 
           layer.on('mouseout', (e) => {
-            statesLayer.resetStyle(e.target);
+            const target = e.target;
+            if (target !== activeLayerRef.current) {
+              statesLayer.resetStyle(e.target);
+            }
           });
         }
       }
@@ -113,6 +150,9 @@ export default function BrazilMap({ onDrilldown }: BrazilMapProps) {
       setCurrentPopup(null);
     }
 
+    // Reset active layer reference
+    activeLayerRef.current = null;
+
     // Add cities layer
     const citiesLayer = L.geoJSON(citiesGeoJson, {
       style: () => ({
@@ -139,6 +179,9 @@ export default function BrazilMap({ onDrilldown }: BrazilMapProps) {
             
             setSelectedCity(cityId.toString());
             
+            // Set this layer as active with visual highlighting
+            setActiveLayer(layer);
+            
             if (onDrilldown) {
               onDrilldown(selectedState, cityId.toString());
             }
@@ -147,17 +190,22 @@ export default function BrazilMap({ onDrilldown }: BrazilMapProps) {
           // Highlight on hover
           layer.on('mouseover', (e) => {
             const target = e.target as L.Path;
-            target.setStyle({
-              weight: 3,
-              color: '#666',
-              dashArray: '',
-              fillOpacity: 0.9
-            });
-            target.bringToFront();
+            if (target !== activeLayerRef.current) {
+              target.setStyle({
+                weight: 3,
+                color: '#666',
+                dashArray: '',
+                fillOpacity: 0.9
+              });
+              target.bringToFront();
+            }
           });
 
           layer.on('mouseout', (e) => {
-            citiesLayer.resetStyle(e.target);
+            const target = e.target as L.Path;
+            if (target !== activeLayerRef.current) {
+              citiesLayer.resetStyle(e.target);
+            }
           });
         }
       }
@@ -170,7 +218,7 @@ export default function BrazilMap({ onDrilldown }: BrazilMapProps) {
     if (citiesLayer.getBounds().isValid()) {
       map.fitBounds(citiesLayer.getBounds(), { padding: [20, 20] });
     }
-  }, [isStateView, selectedState, citiesGeoJson, mapInitialized, onDrilldown]);
+  }, [isStateView, selectedState, citiesGeoJson, mapInitialized]); // Removed onDrilldown from dependencies
 
   // Handle returning to states view
   useEffect(() => {
@@ -188,6 +236,9 @@ export default function BrazilMap({ onDrilldown }: BrazilMapProps) {
       map.closePopup(currentPopup);
       setCurrentPopup(null);
     }
+
+    // Reset active layer reference
+    activeLayerRef.current = null;
 
     // Re-add states layer
     const statesLayer = L.geoJSON(topoJsonData, {
@@ -214,21 +265,29 @@ export default function BrazilMap({ onDrilldown }: BrazilMapProps) {
             
             setSelectedState(stateCode.toString());
             setSelectedCity(null);
+            
+            // Set this layer as active with visual highlighting
+            setActiveLayer(layer);
           });
 
           layer.on('mouseover', (e) => {
             const target = e.target;
-            target.setStyle({
-              weight: 3,
-              color: '#666',
-              dashArray: '',
-              fillOpacity: 0.9
-            });
-            target.bringToFront();
+            if (target !== activeLayerRef.current) {
+              target.setStyle({
+                weight: 3,
+                color: '#666',
+                dashArray: '',
+                fillOpacity: 0.9
+              });
+              target.bringToFront();
+            }
           });
 
           layer.on('mouseout', (e) => {
-            statesLayer.resetStyle(e.target);
+            const target = e.target;
+            if (target !== activeLayerRef.current) {
+              statesLayer.resetStyle(e.target);
+            }
           });
         }
       }
@@ -240,7 +299,33 @@ export default function BrazilMap({ onDrilldown }: BrazilMapProps) {
     // Don't reset zoom when returning to states view
   }, [isStateView, topoJsonData, mapInitialized, stateStats]);
 
+  // Effect to maintain active layer highlighting when selections change
+  useEffect(() => {
+    if (!geoLayerRef.current) return;
+    
+    // Find and highlight the currently selected state or city
+    if (selectedState && !isStateView) {
+      // Highlight selected state
+      geoLayerRef.current.eachLayer((layer: any) => {
+        const feature = layer.feature;
+        if (feature?.properties?.codigo?.toString() === selectedState) {
+          setActiveLayer(layer);
+        }
+      });
+    } else if (selectedCity && isStateView) {
+      // Highlight selected city
+      geoLayerRef.current.eachLayer((layer: any) => {
+        const feature = layer.feature;
+        if (feature?.properties?.id?.toString() === selectedCity) {
+          setActiveLayer(layer);
+        }
+      });
+    }
+  }, [selectedState, selectedCity, isStateView, mapInitialized]);
+
   const handleBackToStates = () => {
+    // Reset active layer before changing views
+    resetActiveLayer();
     setIsStateView(false);
     setSelectedState(null);
     setSelectedCity(null);
@@ -271,8 +356,13 @@ export default function BrazilMap({ onDrilldown }: BrazilMapProps) {
         center={[-14.235004, -51.92528]}
         zoom={4}
         style={{ height: '100%', width: '100%' }}
-        whenReady={(mapEvent) => {
-          mapRef.current = mapEvent.target;
+        whenReady={() => {
+          // Map initialization will be handled by useEffect
+        }}
+        ref={(mapInstance) => {
+          if (mapInstance) {
+            mapRef.current = mapInstance;
+          }
         }}
       >
         <TileLayer
