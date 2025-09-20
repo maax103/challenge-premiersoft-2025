@@ -1,0 +1,34 @@
+{
+  // VS Code tasks to run Laravel commands inside Docker
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "Migrate + Seed (Docker)",
+      "type": "shell",
+      "command": "docker compose exec -T app php artisan migrate --seed",
+      "group": "build",
+      "problemMatcher": []
+    },
+    {
+      "label": "Artisan Config Clear (Docker)",
+      "type": "shell",
+      "command": "docker compose exec -T app php artisan config:clear",
+      "group": "none",
+      "problemMatcher": []
+    }
+  ]
+}
+{
+	"version": "2.0.0",
+	"tasks": [
+		{
+			"label": "Run Laravel migrate --seed",
+			"type": "shell",
+			"command": "php artisan migrate --seed",
+			"problemMatcher": [
+				"$phpunit"
+			],
+			"group": "build"
+		}
+	]
+}
