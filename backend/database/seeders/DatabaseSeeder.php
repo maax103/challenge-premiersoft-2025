@@ -23,6 +23,7 @@ class DatabaseSeeder extends Seeder
         // Seed estados from CSV
         $this->call([
             EstadoSeeder::class,
+            CidSeeder::class,
         ]);
     }
 }

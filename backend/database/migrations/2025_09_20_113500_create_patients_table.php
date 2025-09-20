@@ -19,10 +19,9 @@ return new class extends Migration
             $table->unsignedInteger('city');
             $table->string('neighborhood');
             $table->boolean('has_insurance')->default(false);
-            $table->string('icd10_code', 10);
+            $table->foreignId('cid_id')->constrained('cids');
             $table->timestamps();
             $table->index('city');
-            $table->index('icd10_code');
         });
     }
 
