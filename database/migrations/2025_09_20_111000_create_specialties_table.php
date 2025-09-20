@@ -11,14 +11,16 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::create('states', function (Blueprint $table) {
-            $table->unsignedSmallInteger('id')->primary();
-            $table->string('uf', 2)->unique();
+        Schema::create('specialties', function (Blueprint $table) {
+            $table->uuid('id')->primary();
+            $table->uuid('hospital_id');
             $table->string('name');
-            $table->decimal('latitude', 9, 6)->nullable();
-            $table->decimal('longitude', 9, 6)->nullable();
-            $table->string('region', 32);
             $table->timestamps();
+
+            $table->foreign('hospital_id')
+                ->references('id')->on('hospitals')
+                ->onUpdate('cascade')
+                ->onDelete('cascade');
         });
     }
 
@@ -27,6 +29,6 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::dropIfExists('estados');
+        Schema::dropIfExists('specialties');
     }
 };
