@@ -1,7 +1,7 @@
 services:
     app:
         build:
-            context: .
+            context: ./backend
             dockerfile: Dockerfile
         restart: unless-stopped
         working_dir: /var/www/
@@ -9,7 +9,7 @@ services:
             - "80:80"
             - "5173:5173"
         volumes:
-            - ./:/var/www
+            - ./backend:/var/www
         depends_on:
             - redis
             - node
@@ -19,7 +19,6 @@ services:
         environment:
             XDEBUG_MODE: debug,develop
             XDEBUG_CONFIG: "client_host=host.docker.internal client_port=9003"
-            # Laravel DB/Cache configuration to use docker services
             APP_ENV: local
             APP_DEBUG: "true"
             APP_KEY: "base64:3H9y5VJ0hA1g2K8vLw4n1qS9mQe7XyZ0jVdF6oPlq9o="
