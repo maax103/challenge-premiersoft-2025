@@ -16,8 +16,9 @@ export function useStateStats() {
   const { data, error, isLoading, mutate } = useSWR<StateStats[]>(
     'all-states-stats',
     async () => {
-      // Mock: get all state stats
-      const states = [1, 2, 3, 4, 5]; // Example state IDs
+      // Use proper state codes that match the topojson data
+      // These are the actual state codes from the topojson file
+      const states = [12, 27, 16, 23, 53, 32, 52, 21, 31, 50, 51, 25, 41, 33, 24, 43, 26, 22, 29, 17, 28, 11, 14, 42, 35, 15, 13]; 
       const statsPromises = states.map(id => apiService.fetchStateStats(id));
       return Promise.all(statsPromises);
     },
@@ -157,30 +158,45 @@ export function useTopoJsonData(
 
 // Hook for generating cities GeoJSON with SWR
 export function useCitiesGeoJson(stateId: number | null) {
-  const { cities, isLoading, isError } = useCitiesByState(stateId);
+  // Also get municipalities TopoJSON data
+  const { data: municipalitiesData, isLoading: municipalitiesLoading } = useSWR(
+    stateId ? ['municipalities-topojson', stateId] : null,
+    async () => {
+      const response = await fetch('/topograph/municipio.json');
+      const topology = await response.json();
+      const { feature } = await import('topojson-client');
+      const municipalitiesObject = Object.keys(topology.objects)[0]; // Should be 'Munic'
+      const allMunicipalities = feature(topology, topology.objects[municipalitiesObject]) as any;
+      
+      return allMunicipalities;
+    },
+    {
+      revalidateOnFocus: false,
+      revalidateOnReconnect: false,
+      dedupingInterval: Infinity,
+    }
+  );
 
-  const citiesGeoJson = cities ? {
+  // Return municipalities as GeoJSON (all municipalities for now, could be filtered by state later)
+  const citiesGeoJson = municipalitiesData?.features ? {
     type: 'FeatureCollection' as const,
-    features: cities.map(city => ({
-      type: 'Feature' as const,
-      properties: {
-        id: city.id,
-        name: city.name,
-        population: city.population,
-        is_capital: city.is_capital,
-        time_zone: city.time_zone,
-        state_id: city.state_id
-      },
-      geometry: {
-        type: 'Point' as const,
-        coordinates: [city.longitude || -50, city.latitude || -15] // [lng, lat]
-      }
-    }))
+    features: municipalitiesData.features.map((municipalityFeature: any, index: number) => {
+      return {
+        type: 'Feature' as const,
+        properties: {
+          id: index + 1, // Use index as ID since we don't have proper IDs
+          name: municipalityFeature.properties?.n || `Município ${index + 1}`,
+          state_id: stateId,
+          ...municipalityFeature.properties
+        },
+        geometry: municipalityFeature.geometry
+      };
+    })
   } : null;
 
   return {
     citiesGeoJson,
-    isLoading,
-    isError,
+    isLoading: municipalitiesLoading,
+    isError: false,
   };
 }
