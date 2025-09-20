@@ -1,0 +1,46 @@
+# Laravel
+/vendor/
+/node_modules/
+
+# Public build/runtime artifacts
+/public/hot
+/public/storage
+
+# Laravel caches and compiled files
+/bootstrap/cache/*.php
+!/bootstrap/cache/.gitignore
+/storage/*.key
+
+# Environment files
+/.env
+/.env.*
+/.env.backup
+/.env.*.backup
+
+# PHPUnit cache
+/.phpunit.result.cache
+/.phpunit.cache
+
+# Homestead (if used)
+/Homestead.yaml
+/Homestead.json
+
+# IDE/editor settings
+/.idea
+/.vscode
+/.fleet
+/.phpstorm.meta.php
+
+# Helper/analysis tool artifacts (if used)
+/_ide_helper.php
+/_ide_helper_models.php
+/.php-cs-fixer.cache
+
+# Package manager logs
+npm-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# OS files
+.DS_Store
+Thumbs.db
