@@ -1,13 +1,15 @@
 import { useRef, useEffect, useState } from 'react';
 import { MapContainer, TileLayer } from 'react-leaflet';
 import L, { GeoJSON, Map } from 'leaflet';
-import { Text, Button, Box, LoadingOverlay } from '@mantine/core';
+import { Button, Box, LoadingOverlay } from '@mantine/core';
 import { 
   useStateStats, 
   useCityStats, 
   useCitiesGeoJson,
   useTopoJsonData 
 } from '../hooks/useMapData';
+import StateInfoPanel from './StateInfoPanel';
+import CityInfoPanel from './CityInfoPanel';
 
 interface BrazilMapProps {
   onDrilldown?: (stateCode?: string, cityCode?: string) => void;
@@ -20,6 +22,7 @@ export default function BrazilMap({ onDrilldown }: BrazilMapProps) {
   const [selectedCity, setSelectedCity] = useState<string | null>(null);
   const [isStateView, setIsStateView] = useState(false);
   const [currentPopup, setCurrentPopup] = useState<L.Popup | null>(null);
+  const [mapInitialized, setMapInitialized] = useState(false);
 
   // SWR hooks for data fetching
   const { data: stateStats, isLoading: loadingStateStats } = useStateStats();
@@ -29,15 +32,79 @@ export default function BrazilMap({ onDrilldown }: BrazilMapProps) {
 
   const isLoading = loadingStateStats || loadingCityStats || loadingCitiesGeoJson || loadingTopoJson;
 
+  // Initialize map and load base TopoJSON data only once
   useEffect(() => {
-    if (!mapRef.current || !topoJsonData) return;
+    if (!mapRef.current || !topoJsonData || mapInitialized) return;
 
     const map = mapRef.current;
     
-    // Clear existing GeoJSON layers
+    // Load states layer initially
+    const statesLayer = L.geoJSON(topoJsonData, {
+      style: () => ({
+        fillColor: '#4CAF50',
+        weight: 2,
+        opacity: 1,
+        color: 'white',
+        dashArray: '3',
+        fillOpacity: 0.7
+      }),
+      onEachFeature: (feature, layer) => {
+        const stateCode = feature.properties?.codigo;
+        const stateName = feature.properties?.name;
+        
+        if (stateCode && stateName) {
+          layer.on('click', (e) => {
+            L.DomEvent.stopPropagation(e);
+            
+            // Close any existing popup
+            if (currentPopup) {
+              map.closePopup(currentPopup);
+              setCurrentPopup(null);
+            }
+            
+            setSelectedState(stateCode.toString());
+            setSelectedCity(null); // Reset city selection
+          });
+
+          // Highlight on hover
+          layer.on('mouseover', (e) => {
+            const target = e.target;
+            target.setStyle({
+              weight: 3,
+              color: '#666',
+              dashArray: '',
+              fillOpacity: 0.9
+            });
+            target.bringToFront();
+          });
+
+          layer.on('mouseout', (e) => {
+            statesLayer.resetStyle(e.target);
+          });
+        }
+      }
+    });
+
+    statesLayer.addTo(map);
+    geoLayerRef.current = statesLayer;
+    
+    // Fit map to Brazil bounds initially
+    if (statesLayer.getBounds().isValid()) {
+      map.fitBounds(statesLayer.getBounds(), { padding: [20, 20] });
+    }
+    
+    setMapInitialized(true);
+  }, [topoJsonData, mapInitialized, stateStats]);
+
+  // Handle layer switching when drilling down to cities
+  useEffect(() => {
+    if (!mapRef.current || !mapInitialized || !isStateView || !selectedState || !citiesGeoJson) return;
+
+    const map = mapRef.current;
+    
+    // Remove current layer
     if (geoLayerRef.current) {
       map.removeLayer(geoLayerRef.current);
-      geoLayerRef.current = null;
     }
 
     // Close any existing popup
@@ -46,147 +113,132 @@ export default function BrazilMap({ onDrilldown }: BrazilMapProps) {
       setCurrentPopup(null);
     }
 
-    if (isStateView && selectedState && citiesGeoJson) {
-      // Show cities view - now using proper municipality polygons
-      const citiesLayer = L.geoJSON(citiesGeoJson, {
-        style: () => ({
-          fillColor: '#2196F3',
-          weight: 2,
-          opacity: 1,
-          color: 'white',
-          dashArray: '3',
-          fillOpacity: 0.7
-        }),
-        onEachFeature: (feature, layer) => {
-          const cityId = feature.properties?.id;
-          const cityName = feature.properties?.name;
-          
-          if (cityId && cityName) {
-            layer.on('click', (e) => {
-              L.DomEvent.stopPropagation(e);
-              
-              setSelectedCity(cityId.toString());
-              
-              const content = `
-                <div style="min-width: 200px;">
-                  <h3 style="margin: 0 0 10px 0;">${cityName}</h3>
-                  <p><strong>Município:</strong> ${cityName}</p>
-                  <p><em>Clique para ver detalhes no painel ao lado</em></p>
-                </div>
-              `;
-              
-              const popup = L.popup()
-                .setLatLng(e.latlng)
-                .setContent(content)
-                .openOn(map);
-              
-              setCurrentPopup(popup);
-              
-              if (onDrilldown) {
-                onDrilldown(selectedState, cityId.toString());
-              }
-            });
+    // Add cities layer
+    const citiesLayer = L.geoJSON(citiesGeoJson, {
+      style: () => ({
+        fillColor: '#2196F3',
+        weight: 2,
+        opacity: 1,
+        color: 'white',
+        dashArray: '3',
+        fillOpacity: 0.7
+      }),
+      onEachFeature: (feature, layer) => {
+        const cityId = feature.properties?.id;
+        const cityName = feature.properties?.name;
+        
+        if (cityId && cityName) {
+          layer.on('click', (e) => {
+            L.DomEvent.stopPropagation(e);
+            
+            // Close any existing popup
+            if (currentPopup) {
+              map.closePopup(currentPopup);
+              setCurrentPopup(null);
+            }
+            
+            setSelectedCity(cityId.toString());
+            
+            if (onDrilldown) {
+              onDrilldown(selectedState, cityId.toString());
+            }
+          });
 
-            // Highlight on hover
-            layer.on('mouseover', (e) => {
-              const target = e.target as L.Path;
-              target.setStyle({
-                weight: 3,
-                color: '#666',
-                dashArray: '',
-                fillOpacity: 0.9
-              });
-              target.bringToFront();
+          // Highlight on hover
+          layer.on('mouseover', (e) => {
+            const target = e.target as L.Path;
+            target.setStyle({
+              weight: 3,
+              color: '#666',
+              dashArray: '',
+              fillOpacity: 0.9
             });
+            target.bringToFront();
+          });
 
-            layer.on('mouseout', (e) => {
-              citiesLayer.resetStyle(e.target);
-            });
-          }
+          layer.on('mouseout', (e) => {
+            citiesLayer.resetStyle(e.target);
+          });
         }
-      });
-
-      citiesLayer.addTo(map);
-      geoLayerRef.current = citiesLayer;
-      
-      // Fit map to cities bounds
-      if (citiesLayer.getBounds().isValid()) {
-        map.fitBounds(citiesLayer.getBounds(), { padding: [20, 20] });
       }
-    } else {
-      // Show states view
-      const statesLayer = L.geoJSON(topoJsonData, {
-        style: () => ({
-          fillColor: '#4CAF50',
-          weight: 2,
-          opacity: 1,
-          color: 'white',
-          dashArray: '3',
-          fillOpacity: 0.7
-        }),
-        onEachFeature: (feature, layer) => {
-          const stateCode = feature.properties?.codigo; // Use 'codigo' not 'codigo_ibge'
-          const stateName = feature.properties?.name;
-          
-          if (stateCode && stateName) {
-            layer.on('click', (e) => {
-              L.DomEvent.stopPropagation(e);
-              
-              setSelectedState(stateCode.toString());
-              
-              const stats = stateStats?.find((s) => 
-                s.state?.id?.toString() === stateCode.toString()
-              );
-              
-              const content = `
-                <div style="min-width: 200px;">
-                  <h3 style="margin: 0 0 10px 0;">${stateName}</h3>
-                  ${stats ? `
-                    <p><strong>Total de Pacientes:</strong> ${stats.totalPatients || 0}</p>
-                    <p><strong>Cidades:</strong> ${stats.totalCities || 0}</p>
-                    <p><strong>Hospitais:</strong> ${stats.totalHospitals || 0}</p>
-                    <p><strong>População:</strong> ${stats.totalPopulation?.toLocaleString() || 0}</p>
-                    <p><strong>Leitos:</strong> ${stats.totalBeds || 0}</p>
-                  ` : '<p>Carregando dados...</p>'}
-                </div>
-              `;
-              
-              const popup = L.popup()
-                .setLatLng(e.latlng)
-                .setContent(content)
-                .openOn(map);
-              
-              setCurrentPopup(popup);
-            });
+    });
 
-            // Highlight on hover
-            layer.on('mouseover', (e) => {
-              const target = e.target;
-              target.setStyle({
-                weight: 3,
-                color: '#666',
-                dashArray: '',
-                fillOpacity: 0.9
-              });
-              target.bringToFront();
-            });
-
-            layer.on('mouseout', (e) => {
-              statesLayer.resetStyle(e.target);
-            });
-          }
-        }
-      });
-
-      statesLayer.addTo(map);
-      geoLayerRef.current = statesLayer;
-      
-      // Fit map to Brazil bounds
-      if (statesLayer.getBounds().isValid()) {
-        map.fitBounds(statesLayer.getBounds(), { padding: [20, 20] });
-      }
+    citiesLayer.addTo(map);
+    geoLayerRef.current = citiesLayer;
+    
+    // Fit map to cities bounds
+    if (citiesLayer.getBounds().isValid()) {
+      map.fitBounds(citiesLayer.getBounds(), { padding: [20, 20] });
     }
-  }, [topoJsonData, isStateView, selectedState, citiesGeoJson, stateStats, cityStats, currentPopup, onDrilldown]);
+  }, [isStateView, selectedState, citiesGeoJson, mapInitialized, onDrilldown]);
+
+  // Handle returning to states view
+  useEffect(() => {
+    if (!mapRef.current || !mapInitialized || isStateView || !topoJsonData) return;
+
+    const map = mapRef.current;
+    
+    // Remove current layer
+    if (geoLayerRef.current) {
+      map.removeLayer(geoLayerRef.current);
+    }
+
+    // Close any existing popup
+    if (currentPopup) {
+      map.closePopup(currentPopup);
+      setCurrentPopup(null);
+    }
+
+    // Re-add states layer
+    const statesLayer = L.geoJSON(topoJsonData, {
+      style: () => ({
+        fillColor: '#4CAF50',
+        weight: 2,
+        opacity: 1,
+        color: 'white',
+        dashArray: '3',
+        fillOpacity: 0.7
+      }),
+      onEachFeature: (feature, layer) => {
+        const stateCode = feature.properties?.codigo;
+        const stateName = feature.properties?.name;
+        
+        if (stateCode && stateName) {
+          layer.on('click', (e) => {
+            L.DomEvent.stopPropagation(e);
+            
+            if (currentPopup) {
+              map.closePopup(currentPopup);
+              setCurrentPopup(null);
+            }
+            
+            setSelectedState(stateCode.toString());
+            setSelectedCity(null);
+          });
+
+          layer.on('mouseover', (e) => {
+            const target = e.target;
+            target.setStyle({
+              weight: 3,
+              color: '#666',
+              dashArray: '',
+              fillOpacity: 0.9
+            });
+            target.bringToFront();
+          });
+
+          layer.on('mouseout', (e) => {
+            statesLayer.resetStyle(e.target);
+          });
+        }
+      }
+    });
+
+    statesLayer.addTo(map);
+    geoLayerRef.current = statesLayer;
+    
+    // Don't reset zoom when returning to states view
+  }, [isStateView, topoJsonData, mapInitialized, stateStats]);
 
   const handleBackToStates = () => {
     setIsStateView(false);
@@ -230,128 +282,29 @@ export default function BrazilMap({ onDrilldown }: BrazilMapProps) {
       </MapContainer>
 
       {selectedState && (
-        <Box style={{ 
-          position: 'absolute', 
-          bottom: 10, 
-          right: 10, 
-          background: 'white', 
-          padding: '15px', 
-          borderRadius: '8px',
-          boxShadow: '0 2px 10px rgba(0,0,0,0.2)',
-          zIndex: 1000,
-          minWidth: '250px'
-        }}>
+        <>
           {!isStateView ? (
-            <>
-              <Text size="md" weight="bold" mb="xs">
-                Estado Selecionado
-              </Text>
-              {(() => {
-                const stats = stateStats?.find((s) => 
-                  s.state?.id?.toString() === selectedState
-                );
-                const stateName = topoJsonData?.features?.find((f: any) => 
-                  f.properties?.codigo?.toString() === selectedState
-                )?.properties?.name || `Estado ${selectedState}`;
-                
-                return (
-                  <>
-                    <Text size="sm" weight="500" mb="xs">
-                      {stateName}
-                    </Text>
-                    {stats ? (
-                      <>
-                        <Text size="xs" mb="4px">
-                          <strong>Pacientes:</strong> {stats.totalPatients?.toLocaleString() || 0}
-                        </Text>
-                        <Text size="xs" mb="4px">
-                          <strong>Cidades:</strong> {stats.totalCities || 0}
-                        </Text>
-                        <Text size="xs" mb="4px">
-                          <strong>Hospitais:</strong> {stats.totalHospitals || 0}
-                        </Text>
-                        <Text size="xs" mb="4px">
-                          <strong>População:</strong> {stats.totalPopulation?.toLocaleString() || 0}
-                        </Text>
-                        <Text size="xs" mb="xs">
-                          <strong>Leitos:</strong> {stats.totalBeds || 0}
-                        </Text>
-                        <Button 
-                          size="xs" 
-                          fullWidth
-                          onClick={() => {
-                            setIsStateView(true);
-                            if (onDrilldown) {
-                              onDrilldown(selectedState);
-                            }
-                          }}
-                          style={{ marginTop: '8px' }}
-                        >
-                          Ver Municípios
-                        </Button>
-                      </>
-                    ) : (
-                      <Text size="xs" color="dimmed" mb="xs">
-                        Carregando dados...
-                      </Text>
-                    )}
-                  </>
-                );
-              })()}
-            </>
+            <StateInfoPanel
+              selectedState={selectedState}
+              stateStats={stateStats}
+              topoJsonData={topoJsonData}
+              onDrilldown={() => {
+                setIsStateView(true);
+                if (onDrilldown) {
+                  onDrilldown(selectedState);
+                }
+              }}
+            />
           ) : (
-            <>
-              <Text size="md" weight="bold" mb="xs">
-                Visualizando Municípios
-              </Text>
-              {(() => {
-                const stateName = topoJsonData?.features?.find((f: any) => 
-                  f.properties?.codigo?.toString() === selectedState
-                )?.properties?.name || `Estado ${selectedState}`;
-                
-                return (
-                  <Text size="sm" mb="xs">
-                    {stateName}
-                  </Text>
-                );
-              })()}
-              {selectedCity && (() => {
-                const stats = cityStats;
-                const cityName = citiesGeoJson?.features?.find((f: any) => 
-                  f.properties?.id?.toString() === selectedCity
-                )?.properties?.name || `Município ${selectedCity}`;
-                
-                return (
-                  <>
-                    <Text size="sm" weight="500" mb="xs">
-                      {cityName}
-                    </Text>
-                    {stats ? (
-                      <>
-                        <Text size="xs" mb="4px">
-                          <strong>Pacientes:</strong> {stats.totalPatients || 0}
-                        </Text>
-                        <Text size="xs" mb="4px">
-                          <strong>Hospitais:</strong> {stats.hospitals?.length || 0}
-                        </Text>
-                        <Text size="xs" mb="4px">
-                          <strong>Leitos:</strong> {stats.totalBeds || 0}
-                        </Text>
-                        <Text size="xs" mb="xs">
-                          <strong>Médicos:</strong> {stats.totalDoctors || 0}
-                        </Text>
-                      </>
-                    ) : (
-                      <Text size="xs" color="dimmed">
-                        Carregando dados...
-                      </Text>
-                    )}
-                  </>
-                );
-              })()}
-            </>
+            <CityInfoPanel
+              selectedState={selectedState}
+              selectedCity={selectedCity}
+              cityStats={cityStats}
+              citiesGeoJson={citiesGeoJson}
+              topoJsonData={topoJsonData}
+            />
           )}
-        </Box>
+        </>
       )}
     </Box>
   );
