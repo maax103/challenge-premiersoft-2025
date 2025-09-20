@@ -1,7 +1,7 @@
 import './App.css'
 import { Container, Title, Grid, Space, Group, Button, Switch } from '@mantine/core'
 import { useState } from 'react'
-import { BrazilMap } from './components/BrazilMap'
+import BrazilMap from './components/BrazilMap'
 import { StatCard, generateRandomStats } from './components/StatCard'
 import { DataTable } from './components/DataTable'
 import { ChartWidget } from './components/ChartWidget'
@@ -38,7 +38,7 @@ function App() {
 
       {/* Map and Chart Section */}
       <Grid mb="xl">
-        <Grid.Col span={{ base: 12, lg: 8 }}>
+        <Grid.Col span={{ base: 12 }}>
           <Group mb="md">
             <Switch
               label="Show States"
@@ -51,21 +51,17 @@ function App() {
               onChange={(event) => setShowMunicipalities(event.currentTarget.checked)}
             />
           </Group>
-          <BrazilMap 
-            height={500} 
-            showStates={showStates}
-            showMunicipalities={showMunicipalities}
-          />
+          <BrazilMap />
         </Grid.Col>
-        <Grid.Col span={{ base: 12, lg: 4 }}>
+        {/* <Grid.Col span={{ base: 12, lg: 4 }}>
           <ChartWidget />
           <Space h="md" />
           <ActivityFeed />
-        </Grid.Col>
+        </Grid.Col> */}
       </Grid>
 
       {/* Data Table */}
-      <DataTable />
+      {/* <DataTable /> */}
     </Container>
   )
 }
