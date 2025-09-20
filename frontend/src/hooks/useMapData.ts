@@ -1,6 +1,37 @@
 import useSWR from 'swr';
 import { apiService, type StateStats, type CityStats, type State, type City } from '../services/municipalityService';
 
+// State code to UF mapping
+const STATE_CODE_TO_UF: Record<number, string> = {
+  12: 'AC', // Acre
+  27: 'AL', // Alagoas  
+  13: 'AM', // Amazonas
+  16: 'AP', // Amapá
+  29: 'BA', // Bahia
+  23: 'CE', // Ceará
+  53: 'DF', // Distrito Federal
+  32: 'ES', // Espírito Santo
+  52: 'GO', // Goiás
+  21: 'MA', // Maranhão
+  51: 'MT', // Mato Grosso
+  50: 'MS', // Mato Grosso do Sul
+  31: 'MG', // Minas Gerais
+  15: 'PA', // Pará
+  25: 'PB', // Paraíba
+  41: 'PR', // Paraná
+  26: 'PE', // Pernambuco
+  22: 'PI', // Piauí
+  33: 'RJ', // Rio de Janeiro
+  24: 'RN', // Rio Grande do Norte
+  43: 'RS', // Rio Grande do Sul
+  11: 'RO', // Rondônia
+  14: 'RR', // Roraima
+  42: 'SC', // Santa Catarina
+  35: 'SP', // São Paulo
+  28: 'SE', // Sergipe
+  17: 'TO', // Tocantins
+};
+
 // Fetcher functions for SWR
 const fetchers = {
   stateStats: (stateId: number) => apiService.fetchStateStats(stateId),
@@ -16,9 +47,8 @@ export function useStateStats() {
   const { data, error, isLoading, mutate } = useSWR<StateStats[]>(
     'all-states-stats',
     async () => {
-      // Use proper state codes that match the topojson data
-      // These are the actual state codes from the topojson file
-      const states = [12, 27, 16, 23, 53, 32, 52, 21, 31, 50, 51, 25, 41, 33, 24, 43, 26, 22, 29, 17, 28, 11, 14, 42, 35, 15, 13]; 
+      // Use the state codes that match our mapping
+      const states = Object.keys(STATE_CODE_TO_UF).map(Number); 
       const statsPromises = states.map(id => apiService.fetchStateStats(id));
       return Promise.all(statsPromises);
     },
@@ -158,45 +188,36 @@ export function useTopoJsonData(
 
 // Hook for generating cities GeoJSON with SWR
 export function useCitiesGeoJson(stateId: number | null) {
-  // Also get municipalities TopoJSON data
-  const { data: municipalitiesData, isLoading: municipalitiesLoading } = useSWR(
-    stateId ? ['municipalities-topojson', stateId] : null,
+  // Get the UF code for the selected state
+  const ufCode = stateId ? STATE_CODE_TO_UF[stateId] : null;
+  
+  // Load state-specific municipality data
+  const { data: municipalitiesData, isLoading: municipalitiesLoading, error } = useSWR(
+    ufCode ? ['municipalities-geojson', ufCode] : null,
     async () => {
-      const response = await fetch('/topograph/municipio.json');
-      const topology = await response.json();
-      const { feature } = await import('topojson-client');
-      const municipalitiesObject = Object.keys(topology.objects)[0]; // Should be 'Munic'
-      const allMunicipalities = feature(topology, topology.objects[municipalitiesObject]) as any;
+      if (!ufCode) return null;
       
-      return allMunicipalities;
+      const response = await fetch(`/topograph/${ufCode}.json`);
+      if (!response.ok) {
+        throw new Error(`Failed to load municipalities for ${ufCode}: ${response.statusText}`);
+      }
+      
+      const geoJsonData = await response.json();
+      return geoJsonData;
     },
     {
       revalidateOnFocus: false,
       revalidateOnReconnect: false,
-      dedupingInterval: Infinity,
+      dedupingInterval: Infinity, // GeoJSON data never changes
     }
   );
 
-  // Return municipalities as GeoJSON (all municipalities for now, could be filtered by state later)
-  const citiesGeoJson = municipalitiesData?.features ? {
-    type: 'FeatureCollection' as const,
-    features: municipalitiesData.features.map((municipalityFeature: any, index: number) => {
-      return {
-        type: 'Feature' as const,
-        properties: {
-          id: index + 1, // Use index as ID since we don't have proper IDs
-          name: municipalityFeature.properties?.n || `Município ${index + 1}`,
-          state_id: stateId,
-          ...municipalityFeature.properties
-        },
-        geometry: municipalityFeature.geometry
-      };
-    })
-  } : null;
+  // Return municipalities as GeoJSON (directly from the loaded file)
+  const citiesGeoJson = municipalitiesData?.type === 'FeatureCollection' ? municipalitiesData : null;
 
   return {
     citiesGeoJson,
     isLoading: municipalitiesLoading,
-    isError: false,
+    isError: error,
   };
 }

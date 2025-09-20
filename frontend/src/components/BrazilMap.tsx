@@ -1,6 +1,6 @@
 import { useRef, useEffect, useState } from 'react';
 import { MapContainer, TileLayer } from 'react-leaflet';
-import L, { GeoJSON, Map } from 'leaflet';
+import L, { Map } from 'leaflet';
 import { Button, Box, LoadingOverlay } from '@mantine/core';
 import { 
   useStateStats, 
@@ -356,9 +356,6 @@ export default function BrazilMap({ onDrilldown }: BrazilMapProps) {
         center={[-14.235004, -51.92528]}
         zoom={4}
         style={{ height: '100%', width: '100%' }}
-        whenReady={() => {
-          // Map initialization will be handled by useEffect
-        }}
         ref={(mapInstance) => {
           if (mapInstance) {
             mapRef.current = mapInstance;
