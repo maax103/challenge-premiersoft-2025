@@ -110,6 +110,17 @@ export default function BrazilMap({ onDrilldown }: BrazilMapProps) {
               });
               target.bringToFront();
             }
+            
+            // Show tooltip with state name
+            const tooltip = L.tooltip({
+              permanent: false,
+              direction: 'top',
+              offset: [0, -10]
+            })
+              .setContent(stateName)
+              .setLatLng(e.latlng);
+            
+            target.bindTooltip(tooltip).openTooltip();
           });
 
           layer.on('mouseout', (e) => {
@@ -117,6 +128,9 @@ export default function BrazilMap({ onDrilldown }: BrazilMapProps) {
             if (target !== activeLayerRef.current) {
               statesLayer.resetStyle(e.target);
             }
+            
+            // Close tooltip
+            target.closeTooltip();
           });
         }
       }
@@ -199,6 +213,17 @@ export default function BrazilMap({ onDrilldown }: BrazilMapProps) {
               });
               target.bringToFront();
             }
+            
+            // Show tooltip with city name
+            const tooltip = L.tooltip({
+              permanent: false,
+              direction: 'top',
+              offset: [0, -10]
+            })
+              .setContent(cityName)
+              .setLatLng(e.latlng);
+            
+            target.bindTooltip(tooltip).openTooltip();
           });
 
           layer.on('mouseout', (e) => {
@@ -206,6 +231,9 @@ export default function BrazilMap({ onDrilldown }: BrazilMapProps) {
             if (target !== activeLayerRef.current) {
               citiesLayer.resetStyle(e.target);
             }
+            
+            // Close tooltip
+            target.closeTooltip();
           });
         }
       }
@@ -281,6 +309,17 @@ export default function BrazilMap({ onDrilldown }: BrazilMapProps) {
               });
               target.bringToFront();
             }
+            
+            // Show tooltip with state name
+            const tooltip = L.tooltip({
+              permanent: false,
+              direction: 'top',
+              offset: [0, -10]
+            })
+              .setContent(stateName)
+              .setLatLng(e.latlng);
+            
+            target.bindTooltip(tooltip).openTooltip();
           });
 
           layer.on('mouseout', (e) => {
@@ -288,6 +327,9 @@ export default function BrazilMap({ onDrilldown }: BrazilMapProps) {
             if (target !== activeLayerRef.current) {
               statesLayer.resetStyle(e.target);
             }
+            
+            // Close tooltip
+            target.closeTooltip();
           });
         }
       }
@@ -296,7 +338,10 @@ export default function BrazilMap({ onDrilldown }: BrazilMapProps) {
     statesLayer.addTo(map);
     geoLayerRef.current = statesLayer;
     
-    // Don't reset zoom when returning to states view
+    // Reset zoom to show all of Brazil when returning to states view
+    if (statesLayer.getBounds().isValid()) {
+      map.fitBounds(statesLayer.getBounds(), { padding: [20, 20] });
+    }
   }, [isStateView, topoJsonData, mapInitialized, stateStats]);
 
   // Effect to maintain active layer highlighting when selections change
@@ -329,6 +374,20 @@ export default function BrazilMap({ onDrilldown }: BrazilMapProps) {
     setIsStateView(false);
     setSelectedState(null);
     setSelectedCity(null);
+    
+    // Reset zoom to show all of Brazil
+    if (mapRef.current && geoLayerRef.current) {
+      const map = mapRef.current;
+      const layer = geoLayerRef.current;
+      
+      // Wait a short moment for the layer to be updated, then fit bounds
+      setTimeout(() => {
+        if (layer.getBounds().isValid()) {
+          map.fitBounds(layer.getBounds(), { padding: [20, 20] });
+        }
+      }, 100);
+    }
+    
     if (onDrilldown) {
       onDrilldown();
     }
@@ -344,7 +403,7 @@ export default function BrazilMap({ onDrilldown }: BrazilMapProps) {
           style={{ 
             position: 'absolute', 
             top: 10, 
-            left: 10, 
+            left: 50, 
             zIndex: 1000 
           }}
         >
