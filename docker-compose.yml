@@ -9,7 +9,7 @@ services:
             - ./backend:/var/www
         depends_on:
             - redis
-            - node
+            - bun
             - mysql
         networks:
             - laravel
@@ -40,16 +40,22 @@ services:
             - laravel
         depends_on:
             - app
-            - node
+            - bun
 
-    node:
-        image: node:22
+    bun:
+        image: oven/bun:latest
         restart: unless-stopped
-        working_dir: /var/www
+        working_dir: /app
+        build:
+            context: ./frontend
         volumes:
-            - ./:/var/www
+            - ./frontend/:/app
         networks:
             - laravel
+        entrypoint:
+            - "bun"
+            - "run"
+            - "dev"
 
     redis:
         image: redis:latest
