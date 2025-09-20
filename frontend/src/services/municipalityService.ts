@@ -1,125 +1,271 @@
 import { faker } from '@faker-js/faker';
 
-export interface Municipality {
-  id: string;
+export interface State {
+  id: number;
+  uf: string;
   name: string;
-  state: string;
-  population: number;
-  area: number;
-  density: number;
-  gdp: number;
-  healthIndex: number;
-  hospitals: number;
-  schools: number;
-  coordinates: [number, number];
+  latitude: number | null;
+  longitude: number | null;
+  region: string;
+  created_at: string;
+  updated_at: string;
 }
 
 export interface City {
+  id: number;
+  name: string;
+  latitude: number | null;
+  longitude: number | null;
+  is_capital: boolean;
+  state_id: number;
+  siafi_id: number;
+  area_code: number;
+  time_zone: string;
+  population: number;
+}
+
+export interface Hospital {
   id: string;
   name: string;
-  municipalityId: string;
-  population: number;
-  area: number;
-  districts: number;
-  healthFacilities: number;
-  coordinates: [number, number];
+  city: number;
+  neighborhood: string;
+  total_beds: number;
+  created_at: string;
+  updated_at: string;
 }
 
-export interface MunicipalityDetails {
-  municipality: Municipality;
-  demographics: {
-    ageGroups: { label: string; percentage: number }[];
-    education: { level: string; percentage: number }[];
-  };
-  health: {
-    activeHospitals: number;
-    bedsAvailable: number;
-    doctorsPerThousand: number;
-    vaccinationRate: number;
-  };
-  economy: {
-    gdpPerCapita: number;
-    unemployment: number;
-    majorIndustries: string[];
-  };
+export interface Doctor {
+  id: string;
+  full_name: string;
+  specialty: string;
+  city: number;
+  created_at: string;
+  updated_at: string;
 }
 
-// Simulate API functions that will be replaced with real backend calls
-export const municipalityAPI = {
-  // This function simulates fetching municipality data by ID
-  async fetchMunicipalityById(id: string): Promise<Municipality> {
-    // Simulate network delay
-    await new Promise(resolve => setTimeout(resolve, 300));
-    
-    return {
-      id,
-      name: faker.location.city(),
-      state: faker.location.state(),
-      population: faker.number.int({ min: 10000, max: 500000 }),
-      area: faker.number.float({ min: 100, max: 5000, fractionDigits: 1 }),
-      density: faker.number.float({ min: 10, max: 500, fractionDigits: 1 }),
-      gdp: faker.number.float({ min: 1000000, max: 50000000, fractionDigits: 0 }),
-      healthIndex: faker.number.float({ min: 0.6, max: 0.95, fractionDigits: 2 }),
-      hospitals: faker.number.int({ min: 1, max: 15 }),
-      schools: faker.number.int({ min: 5, max: 50 }),
-      coordinates: [
-        faker.location.latitude({ min: -33.7, max: 5.3 }),
-        faker.location.longitude({ min: -73.9, max: -34.8 })
-      ]
-    };
-  },
+export interface Patient {
+  id: string;
+  cpf: string;
+  full_name: string;
+  gender: 'M' | 'F';
+  city: number;
+  neighborhood: string;
+  has_insurance: boolean;
+  cid_id: number;
+  created_at: string;
+  updated_at: string;
+}
 
-  async fetchMunicipalityDetails(id: string): Promise<MunicipalityDetails> {
-    await new Promise(resolve => setTimeout(resolve, 500));
-    
-    const municipality = await this.fetchMunicipalityById(id);
-    
-    return {
-      municipality,
-      demographics: {
-        ageGroups: [
-          { label: '0-17 anos', percentage: faker.number.int({ min: 15, max: 25 }) },
-          { label: '18-39 anos', percentage: faker.number.int({ min: 25, max: 35 }) },
-          { label: '40-59 anos', percentage: faker.number.int({ min: 20, max: 30 }) },
-          { label: '60+ anos', percentage: faker.number.int({ min: 10, max: 20 }) }
-        ],
-        education: [
-          { level: 'Fundamental', percentage: faker.number.int({ min: 30, max: 50 }) },
-          { level: 'Médio', percentage: faker.number.int({ min: 25, max: 40 }) },
-          { level: 'Superior', percentage: faker.number.int({ min: 10, max: 25 }) }
-        ]
-      },
-      health: {
-        activeHospitals: municipality.hospitals,
-        bedsAvailable: faker.number.int({ min: 50, max: 500 }),
-        doctorsPerThousand: faker.number.float({ min: 1.5, max: 4.5, fractionDigits: 1 }),
-        vaccinationRate: faker.number.float({ min: 0.7, max: 0.98, fractionDigits: 2 })
-      },
-      economy: {
-        gdpPerCapita: municipality.gdp / municipality.population,
-        unemployment: faker.number.float({ min: 0.03, max: 0.15, fractionDigits: 2 }),
-        majorIndustries: faker.helpers.arrayElements([
-          'Agricultura', 'Indústria', 'Serviços', 'Turismo', 'Mineração', 'Tecnologia'
-        ], { min: 2, max: 4 })
-      }
-    };
-  },
+export interface CID {
+  id: number;
+  code: string;
+  name: string;
+  created_at: string;
+  updated_at: string;
+}
 
-  async fetchCitiesByMunicipality(municipalityId: string): Promise<City[]> {
+// Statistics interfaces
+export interface StateStats {
+  state: State;
+  totalCities: number;
+  totalPopulation: number;
+  totalHospitals: number;
+  totalBeds: number;
+  totalDoctors: number;
+  totalPatients: number;
+  averagePopulationPerCity: number;
+}
+
+export interface CityStats {
+  city: City;
+  hospitals: Hospital[];
+  totalBeds: number;
+  totalDoctors: number;
+  totalPatients: number;
+  patientsWithInsurance: number;
+  doctorsBySpecialty: Record<string, number>;
+  commonDiseases: Array<{
+    cid: CID;
+    count: number;
+  }>;
+}
+
+// Mock data generators
+const generateState = (stateId: number): State => ({
+  id: stateId,
+  uf: faker.location.state({ abbreviated: true }),
+  name: faker.location.state(),
+  latitude: faker.location.latitude({ min: -33.7, max: 5.3 }),
+  longitude: faker.location.longitude({ min: -73.9, max: -34.8 }),
+  region: faker.helpers.arrayElement(['Norte', 'Nordeste', 'Centro-Oeste', 'Sudeste', 'Sul']),
+  created_at: faker.date.past().toISOString(),
+  updated_at: faker.date.recent().toISOString(),
+});
+
+const generateCity = (stateId: number): City => ({
+  id: faker.number.int({ min: 1000000, max: 9999999 }),
+  name: faker.location.city(),
+  latitude: faker.location.latitude({ min: -33.7, max: 5.3 }),
+  longitude: faker.location.longitude({ min: -73.9, max: -34.8 }),
+  is_capital: faker.datatype.boolean({ probability: 0.1 }),
+  state_id: stateId,
+  siafi_id: faker.number.int({ min: 1000, max: 9999 }),
+  area_code: faker.number.int({ min: 11, max: 89 }),
+  time_zone: faker.helpers.arrayElement(['America/Sao_Paulo', 'America/Manaus', 'America/Fortaleza', 'America/Campo_Grande']),
+  population: faker.number.int({ min: 5000, max: 2000000 }),
+});
+
+const generateHospital = (): Hospital => ({
+  id: faker.string.uuid(),
+  name: `Hospital ${faker.company.name()}`,
+  city: faker.number.int({ min: 1000000, max: 9999999 }),
+  neighborhood: faker.location.street(),
+  total_beds: faker.number.int({ min: 20, max: 500 }),
+  created_at: faker.date.past().toISOString(),
+  updated_at: faker.date.recent().toISOString(),
+});
+
+const generateDoctor = (): Doctor => ({
+  id: faker.string.uuid(),
+  full_name: faker.person.fullName(),
+  specialty: faker.helpers.arrayElement([
+    'Cardiologia', 'Pediatria', 'Neurologia', 'Ortopedia', 'Dermatologia',
+    'Ginecologia', 'Urologia', 'Psiquiatria', 'Oftalmologia', 'Endocrinologia'
+  ]),
+  city: faker.number.int({ min: 1000000, max: 9999999 }),
+  created_at: faker.date.past().toISOString(),
+  updated_at: faker.date.recent().toISOString(),
+});
+
+const generatePatient = (): Patient => ({
+  id: faker.string.uuid(),
+  cpf: faker.string.numeric(11),
+  full_name: faker.person.fullName(),
+  gender: faker.helpers.arrayElement(['M', 'F']),
+  city: faker.number.int({ min: 1000000, max: 9999999 }),
+  neighborhood: faker.location.street(),
+  has_insurance: faker.datatype.boolean(),
+  cid_id: faker.number.int({ min: 1, max: 100 }),
+  created_at: faker.date.past().toISOString(),
+  updated_at: faker.date.recent().toISOString(),
+});
+
+const generateCID = (): CID => ({
+  id: faker.number.int({ min: 1, max: 100 }),
+  code: `${faker.string.alpha({ length: 1, casing: 'upper' })}${faker.string.numeric(2)}`,
+  name: faker.helpers.arrayElement([
+    'Hipertensão arterial', 'Diabetes mellitus', 'Asma', 'Bronquite',
+    'Gastrite', 'Enxaqueca', 'Artrite', 'Depressão', 'Ansiedade',
+    'Pneumonia', 'Anemia', 'Obesidade'
+  ]),
+  created_at: faker.date.past().toISOString(),
+  updated_at: faker.date.recent().toISOString(),
+});
+
+export const apiService = {
+  async fetchStateStats(stateId: number): Promise<StateStats> {
+    // Simulate API call delay
     await new Promise(resolve => setTimeout(resolve, 400));
     
-    return Array.from({ length: faker.number.int({ min: 3, max: 8 }) }, () => ({
-      id: faker.string.uuid(),
-      name: faker.location.city(),
-      municipalityId,
-      population: faker.number.int({ min: 1000, max: 50000 }),
-      area: faker.number.float({ min: 10, max: 500, fractionDigits: 1 }),
-      districts: faker.number.int({ min: 1, max: 8 }),
-      healthFacilities: faker.number.int({ min: 1, max: 5 }),
-      coordinates: [
-        faker.location.latitude({ min: -33.7, max: 5.3 }),
-        faker.location.longitude({ min: -73.9, max: -34.8 })
-      ]
+    const state = generateState(stateId);
+    const totalCities = faker.number.int({ min: 50, max: 853 });
+    const totalPopulation = faker.number.int({ min: 500000, max: 46000000 });
+    const totalHospitals = faker.number.int({ min: 20, max: 1000 });
+    const totalBeds = faker.number.int({ min: 5000, max: 50000 });
+    const totalDoctors = faker.number.int({ min: 1000, max: 20000 });
+    const totalPatients = faker.number.int({ min: 10000, max: 500000 });
+    
+    return {
+      state,
+      totalCities,
+      totalPopulation,
+      totalHospitals,
+      totalBeds,
+      totalDoctors,
+      totalPatients,
+      averagePopulationPerCity: Math.round(totalPopulation / totalCities),
+    };
+  },
+
+  async fetchCitiesByState(stateId: number): Promise<City[]> {
+    await new Promise(resolve => setTimeout(resolve, 300));
+    
+    return Array.from({ length: faker.number.int({ min: 5, max: 15 }) }, () => 
+      generateCity(stateId)
+    );
+  },
+
+  async fetchCityById(_cityId: number): Promise<City> {
+    await new Promise(resolve => setTimeout(resolve, 200));
+    return generateCity(_cityId);
+  },
+
+  async fetchCityStats(cityId: number): Promise<CityStats> {
+    // Simulate API call delay
+    await new Promise(resolve => setTimeout(resolve, 500));
+    
+    const city = generateCity(cityId);
+    const hospitals = Array.from({ length: faker.number.int({ min: 1, max: 8 }) }, () => 
+      generateHospital()
+    );
+    
+    const totalBeds = hospitals.reduce((sum, hospital) => sum + hospital.total_beds, 0);
+    const totalDoctors = faker.number.int({ min: 50, max: 500 });
+    const totalPatients = faker.number.int({ min: 100, max: 2000 });
+    const patientsWithInsurance = faker.number.int({ min: 20, max: totalPatients });
+    
+    const specialties = ['Cardiologia', 'Pediatria', 'Neurologia', 'Ortopedia', 'Dermatologia'];
+    const doctorsBySpecialty: Record<string, number> = {};
+    specialties.forEach(specialty => {
+      doctorsBySpecialty[specialty] = faker.number.int({ min: 5, max: 50 });
+    });
+    
+    const commonDiseases = Array.from({ length: 5 }, () => ({
+      cid: generateCID(),
+      count: faker.number.int({ min: 10, max: 100 })
     }));
+    
+    return {
+      city,
+      hospitals,
+      totalBeds,
+      totalDoctors,
+      totalPatients,
+      patientsWithInsurance,
+      doctorsBySpecialty,
+      commonDiseases,
+    };
+  },
+
+  // Additional utility methods
+  async fetchAllStates(): Promise<State[]> {
+    await new Promise(resolve => setTimeout(resolve, 300));
+    return Array.from({ length: 27 }, (_, i) => generateState(i + 1));
+  },
+
+  async fetchHospitalsByCity(_cityId: number): Promise<Hospital[]> {
+    await new Promise(resolve => setTimeout(resolve, 300));
+    return Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, () => 
+      generateHospital()
+    );
+  },
+
+  async fetchDoctorsBySpecialty(_specialty: string): Promise<Doctor[]> {
+    await new Promise(resolve => setTimeout(resolve, 300));
+    return Array.from({ length: faker.number.int({ min: 5, max: 25 }) }, () => 
+      generateDoctor()
+    );
+  },
+
+  async fetchPatientsByCity(_cityId: number): Promise<Patient[]> {
+    await new Promise(resolve => setTimeout(resolve, 400));
+    return Array.from({ length: faker.number.int({ min: 50, max: 200 }) }, () => 
+      generatePatient()
+    );
+  },
+
+  async fetchCIDList(): Promise<CID[]> {
+    await new Promise(resolve => setTimeout(resolve, 200));
+    return Array.from({ length: 50 }, () => generateCID());
   }
 };

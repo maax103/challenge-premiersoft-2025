@@ -1,13 +1,12 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { MapContainer, TileLayer, GeoJSON } from 'react-leaflet';
 import { Card, Title, LoadingOverlay, Group, Button, Text, Badge } from '@mantine/core';
 import * as topojson from 'topojson-client';
 import * as L from 'leaflet';
 import type { Topology, GeometryCollection } from 'topojson-specification';
 import type { GeoJsonObject } from 'geojson';
-import { MunicipalityModal } from './MunicipalityModal';
-import { municipalityAPI } from '../services/municipalityService';
-import { faker } from '@faker-js/faker';
+import { apiService } from '../services/municipalityService';
+import '../styles/map.css';
 
 interface BrazilMapProps {
   height?: number;
@@ -15,7 +14,7 @@ interface BrazilMapProps {
   showMunicipalities?: boolean;
 }
 
-type MapMode = 'country' | 'municipality';
+type MapMode = 'country' | 'state';
 
 export function BrazilMap({ 
   height = 400, 
@@ -27,10 +26,8 @@ export function BrazilMap({
   const [citiesData, setCitiesData] = useState<GeoJsonObject | null>(null);
   const [loading, setLoading] = useState(true);
   const [mapMode, setMapMode] = useState<MapMode>('country');
-  const [selectedMunicipalityId, setSelectedMunicipalityId] = useState<string | null>(null);
-  const [selectedMunicipalityName, setSelectedMunicipalityName] = useState('');
-  const [modalOpened, setModalOpened] = useState(false);
-  const [currentMunicipalityName, setCurrentMunicipalityName] = useState('');
+  const [currentStateName, setCurrentStateName] = useState('');
+  const mapRef = useRef<L.Map | null>(null);
 
   useEffect(() => {
     const loadTopoJsonData = async () => {
@@ -73,8 +70,8 @@ export function BrazilMap({
     loadTopoJsonData();
   }, [showStates, showMunicipalities, mapMode]);
 
-  const generateCitiesGeoJson = async (municipalityId: string): Promise<any> => {
-    const cities = await municipalityAPI.fetchCitiesByMunicipality(municipalityId);
+  const generateCitiesGeoJson = async (stateId: number): Promise<any> => {
+    const cities = await apiService.fetchCitiesByState(stateId);
     
     return {
       type: 'FeatureCollection',
@@ -84,13 +81,13 @@ export function BrazilMap({
           id: city.id,
           name: city.name,
           population: city.population,
-          area: city.area,
-          districts: city.districts,
-          healthFacilities: city.healthFacilities
+          is_capital: city.is_capital,
+          time_zone: city.time_zone,
+          state_id: city.state_id
         },
         geometry: {
           type: 'Point',
-          coordinates: [city.coordinates[1], city.coordinates[0]] // [lng, lat]
+          coordinates: [city.longitude || -50, city.latitude || -15] // [lng, lat]
         }
       }))
     };
@@ -122,84 +119,270 @@ export function BrazilMap({
     radius: 8
   };
 
+  const onEachStateFeature = (feature: any, layer: any) => {
+    const stateName = feature.properties?.name || feature.properties?.NM_ESTADO || 'Estado';
+    const stateId = feature.properties?.id || Math.floor(Math.random() * 27) + 1;
+    
+    layer.on('click', async () => {
+      setLoading(true);
+      try {
+        const stateStats = await apiService.fetchStateStats(stateId);
+        
+        const popupContent = `
+          <div style="min-width: 280px; font-family: sans-serif;">
+            <div style="border-bottom: 2px solid #3b82f6; padding-bottom: 8px; margin-bottom: 12px;">
+              <h3 style="margin: 0; color: #1e40af; font-size: 16px;">${stateName}</h3>
+              <span style="background: #dbeafe; color: #1e40af; padding: 2px 8px; border-radius: 12px; font-size: 12px;">Estado</span>
+            </div>
+            
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 12px;">
+              <div>
+                <div style="font-size: 12px; color: #666;">População Total</div>
+                <div style="font-weight: bold; color: #111;">${stateStats.totalPopulation.toLocaleString('pt-BR')}</div>
+              </div>
+              <div>
+                <div style="font-size: 12px; color: #666;">Cidades</div>
+                <div style="font-weight: bold; color: #111;">${stateStats.totalCities}</div>
+              </div>
+              <div>
+                <div style="font-size: 12px; color: #666;">Hospitais</div>
+                <div style="font-weight: bold; color: #111;">${stateStats.totalHospitals}</div>
+              </div>
+              <div>
+                <div style="font-size: 12px; color: #666;">Leitos</div>
+                <div style="font-weight: bold; color: #111;">${stateStats.totalBeds.toLocaleString('pt-BR')}</div>
+              </div>
+              <div>
+                <div style="font-size: 12px; color: #666;">Médicos</div>
+                <div style="font-weight: bold; color: #111;">${stateStats.totalDoctors.toLocaleString('pt-BR')}</div>
+              </div>
+              <div>
+                <div style="font-size: 12px; color: #666;">Pacientes</div>
+                <div style="font-weight: bold; color: #111;">${stateStats.totalPatients.toLocaleString('pt-BR')}</div>
+              </div>
+            </div>
+            
+            <button 
+              onclick="window.drillDownToState(${stateId}, '${stateName}')" 
+              style="
+                width: 100%; 
+                padding: 8px 16px; 
+                background: linear-gradient(135deg, #3b82f6 0%, #06b6d4 100%); 
+                color: white; 
+                border: none; 
+                border-radius: 6px; 
+                cursor: pointer; 
+                font-weight: 500;
+                font-size: 14px;
+                transition: transform 0.2s;
+              "
+              onmouseover="this.style.transform='scale(1.02)'"
+              onmouseout="this.style.transform='scale(1)'"
+            >
+              🏙️ Ver Cidades do Estado
+            </button>
+          </div>
+        `;
+        
+        layer.bindPopup(popupContent, {
+          maxWidth: 320,
+          className: 'custom-popup'
+        }).openPopup();
+        
+      } catch (error) {
+        console.error('Erro ao carregar dados do estado:', error);
+      } finally {
+        setLoading(false);
+      }
+    });
+  };
+
   const onEachMunicipalityFeature = (feature: any, layer: any) => {
     const municipalityName = feature.properties?.name || feature.properties?.NM_MUN || 'Município';
+    const municipalityId = feature.properties?.id || Math.floor(Math.random() * 5570) + 1;
     
-    layer.bindPopup(`
-      <div>
-        <strong>${municipalityName}</strong><br/>
-        <button onclick="window.showMunicipalityDetails('${feature.properties?.id || faker.string.uuid()}', '${municipalityName}')" 
-                style="margin-top: 8px; padding: 4px 8px; background: #3b82f6; color: white; border: none; border-radius: 4px; cursor: pointer;">
-          Ver Detalhes
-        </button>
-      </div>
-    `);
+    layer.on('click', async () => {
+      setLoading(true);
+      try {
+        const cityStats = await apiService.fetchCityStats(municipalityId);
+        
+        const topDiseases = cityStats.commonDiseases.slice(0, 3);
+        const topSpecialties = Object.entries(cityStats.doctorsBySpecialty)
+          .sort(([,a], [,b]) => b - a)
+          .slice(0, 3);
+        
+        const popupContent = `
+          <div style="min-width: 300px; font-family: sans-serif;">
+            <div style="border-bottom: 2px solid #10b981; padding-bottom: 8px; margin-bottom: 12px;">
+              <h3 style="margin: 0; color: #059669; font-size: 16px;">${municipalityName}</h3>
+              <span style="background: #d1fae5; color: #059669; padding: 2px 8px; border-radius: 12px; font-size: 12px;">Município</span>
+            </div>
+            
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 12px;">
+              <div>
+                <div style="font-size: 12px; color: #666;">População</div>
+                <div style="font-weight: bold; color: #111;">${cityStats.city.population.toLocaleString('pt-BR')}</div>
+              </div>
+              <div>
+                <div style="font-size: 12px; color: #666;">Hospitais</div>
+                <div style="font-weight: bold; color: #111;">${cityStats.hospitals.length}</div>
+              </div>
+              <div>
+                <div style="font-size: 12px; color: #666;">Leitos</div>
+                <div style="font-weight: bold; color: #111;">${cityStats.totalBeds}</div>
+              </div>
+              <div>
+                <div style="font-size: 12px; color: #666;">Médicos</div>
+                <div style="font-weight: bold; color: #111;">${cityStats.totalDoctors}</div>
+              </div>
+              <div>
+                <div style="font-size: 12px; color: #666;">Pacientes</div>
+                <div style="font-weight: bold; color: #111;">${cityStats.totalPatients}</div>
+              </div>
+              <div>
+                <div style="font-size: 12px; color: #666;">Com Convênio</div>
+                <div style="font-weight: bold; color: #111;">${Math.round((cityStats.patientsWithInsurance / cityStats.totalPatients) * 100)}%</div>
+              </div>
+            </div>
+            
+            <div style="margin-bottom: 12px;">
+              <div style="font-size: 12px; color: #666; margin-bottom: 4px;">Principais Especialidades</div>
+              ${topSpecialties.map(([specialty, count]) => 
+                `<div style="font-size: 11px; margin-bottom: 2px;">• ${specialty}: ${count} médicos</div>`
+              ).join('')}
+            </div>
+            
+            <div style="margin-bottom: 12px;">
+              <div style="font-size: 12px; color: #666; margin-bottom: 4px;">Doenças Mais Comuns</div>
+              ${topDiseases.map(disease => 
+                `<div style="font-size: 11px; margin-bottom: 2px;">• ${disease.cid.name}: ${disease.count} casos</div>`
+              ).join('')}
+            </div>
+          </div>
+        `;
+        
+        layer.bindPopup(popupContent, {
+          maxWidth: 350,
+          className: 'custom-popup'
+        }).openPopup();
+        
+      } catch (error) {
+        console.error('Erro ao carregar dados do município:', error);
+      } finally {
+        setLoading(false);
+      }
+    });
   };
 
   const onEachCityFeature = (feature: any, layer: any) => {
     const cityName = feature.properties?.name || 'Cidade';
+    const cityId = feature.properties?.id || Math.floor(Math.random() * 5570) + 1;
     
-    layer.bindPopup(`
-      <div>
-        <strong>${cityName}</strong><br/>
-        <small>População: ${feature.properties?.population?.toLocaleString('pt-BR') || 'N/A'}</small><br/>
-        <small>Unidades de Saúde: ${feature.properties?.healthFacilities || 'N/A'}</small><br/>
-        <button onclick="window.showCityDetails('${feature.properties?.id}', '${cityName}')" 
-                style="margin-top: 8px; padding: 4px 8px; background: #10b981; color: white; border: none; border-radius: 4px; cursor: pointer;">
-          Ver Dados da Cidade
-        </button>
-      </div>
-    `);
+    layer.on('click', async () => {
+      setLoading(true);
+      try {
+        const cityStats = await apiService.fetchCityStats(cityId);
+        
+        const topSpecialties = Object.entries(cityStats.doctorsBySpecialty)
+          .sort(([,a], [,b]) => b - a)
+          .slice(0, 2);
+        
+        const popupContent = `
+          <div style="min-width: 280px; font-family: sans-serif;">
+            <div style="border-bottom: 2px solid #f59e0b; padding-bottom: 8px; margin-bottom: 12px;">
+              <h3 style="margin: 0; color: #d97706; font-size: 16px;">${cityName}</h3>
+              <div style="display: flex; gap: 4px; margin-top: 4px;">
+                <span style="background: #fef3c7; color: #d97706; padding: 2px 8px; border-radius: 12px; font-size: 12px;">Cidade</span>
+                ${feature.properties?.is_capital ? '<span style="background: #fee2e2; color: #dc2626; padding: 2px 8px; border-radius: 12px; font-size: 12px;">Capital</span>' : ''}
+              </div>
+            </div>
+            
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 12px;">
+              <div>
+                <div style="font-size: 12px; color: #666;">População</div>
+                <div style="font-weight: bold; color: #111;">${feature.properties?.population?.toLocaleString('pt-BR') || 'N/A'}</div>
+              </div>
+              <div>
+                <div style="font-size: 12px; color: #666;">Fuso Horário</div>
+                <div style="font-weight: bold; color: #111;">${feature.properties?.time_zone || 'N/A'}</div>
+              </div>
+              <div>
+                <div style="font-size: 12px; color: #666;">Hospitais</div>
+                <div style="font-weight: bold; color: #111;">${cityStats.hospitals.length}</div>
+              </div>
+              <div>
+                <div style="font-size: 12px; color: #666;">Leitos</div>
+                <div style="font-weight: bold; color: #111;">${cityStats.totalBeds}</div>
+              </div>
+              <div>
+                <div style="font-size: 12px; color: #666;">Médicos</div>
+                <div style="font-weight: bold; color: #111;">${cityStats.totalDoctors}</div>
+              </div>
+              <div>
+                <div style="font-size: 12px; color: #666;">Pacientes</div>
+                <div style="font-weight: bold; color: #111;">${cityStats.totalPatients}</div>
+              </div>
+            </div>
+            
+            ${topSpecialties.length > 0 ? `
+              <div style="margin-bottom: 8px;">
+                <div style="font-size: 12px; color: #666; margin-bottom: 4px;">Principais Especialidades</div>
+                ${topSpecialties.map(([specialty, count]) => 
+                  `<div style="font-size: 11px; margin-bottom: 2px;">• ${specialty}: ${count} médicos</div>`
+                ).join('')}
+              </div>
+            ` : ''}
+          </div>
+        `;
+        
+        layer.bindPopup(popupContent, {
+          maxWidth: 320,
+          className: 'custom-popup'
+        }).openPopup();
+        
+      } catch (error) {
+        console.error('Erro ao carregar dados da cidade:', error);
+      } finally {
+        setLoading(false);
+      }
+    });
   };
 
-  const onEachStateFeature = (feature: any, layer: any) => {
-    if (feature.properties && feature.properties.name) {
-      layer.bindPopup(`<strong>${feature.properties.name}</strong>`);
-    }
-  };
-
-  // Global functions for popup buttons
+  // Global function for drill-down
   useEffect(() => {
-    (window as any).showMunicipalityDetails = (id: string, name: string) => {
-      setSelectedMunicipalityId(id);
-      setSelectedMunicipalityName(name);
-      setModalOpened(true);
-    };
-
-    (window as any).showCityDetails = (id: string, name: string) => {
-      // Here you could open another modal for city details
-      alert(`Detalhes da cidade ${name} (ID: ${id})\n\nEsta funcionalidade pode ser expandida para mostrar dados específicos da cidade.`);
+    (window as any).drillDownToState = async (stateId: number, stateName: string) => {
+      setLoading(true);
+      try {
+        const citiesGeoJson = await generateCitiesGeoJson(stateId);
+        setCitiesData(citiesGeoJson);
+        setMapMode('state');
+        setCurrentStateName(stateName);
+        
+        // Close any open popups
+        if (mapRef.current) {
+          mapRef.current.closePopup();
+        }
+      } catch (error) {
+        console.error('Erro ao carregar cidades:', error);
+      } finally {
+        setLoading(false);
+      }
     };
 
     return () => {
-      delete (window as any).showMunicipalityDetails;
-      delete (window as any).showCityDetails;
+      delete (window as any).drillDownToState;
     };
   }, []);
-
-  const handleShowCities = async (municipalityId: string, municipalityName: string) => {
-    setLoading(true);
-    try {
-      const citiesGeoJson = await generateCitiesGeoJson(municipalityId);
-      setCitiesData(citiesGeoJson);
-      setMapMode('municipality');
-      setCurrentMunicipalityName(municipalityName);
-    } catch (error) {
-      console.error('Erro ao carregar cidades:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const handleBackToCountry = () => {
     setMapMode('country');
     setCitiesData(null);
-    setCurrentMunicipalityName('');
+    setCurrentStateName('');
   };
 
   const getMapTitle = () => {
-    if (mapMode === 'municipality') {
-      return `Cidades de ${currentMunicipalityName}`;
+    if (mapMode === 'state' && currentStateName) {
+      return `Cidades de ${currentStateName}`;
     }
     return 'Mapa do Brasil';
   };
@@ -211,11 +394,11 @@ export function BrazilMap({
           <Group justify="space-between" p="md">
             <Group>
               <Title order={3}>{getMapTitle()}</Title>
-              {mapMode === 'municipality' && (
-                <Badge color="orange" variant="light">Visualização por Município</Badge>
+              {mapMode === 'state' && (
+                <Badge color="orange" variant="light">Visualização por Estado</Badge>
               )}
             </Group>
-            {mapMode === 'municipality' && (
+            {mapMode === 'state' && (
               <Button variant="light" onClick={handleBackToCountry}>
                 ← Voltar ao Mapa Nacional
               </Button>
@@ -227,8 +410,9 @@ export function BrazilMap({
           <MapContainer
             key={mapMode} // Force re-render when mode changes
             center={mapMode === 'country' ? [-14.235, -51.9253] : [-14.235, -51.9253]}
-            zoom={mapMode === 'country' ? 4 : 8}
+            zoom={mapMode === 'country' ? 4 : 6}
             style={{ height: '100%', width: '100%' }}
+            ref={mapRef}
           >
             <TileLayer
               attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
@@ -253,7 +437,7 @@ export function BrazilMap({
               />
             )}
 
-            {mapMode === 'municipality' && citiesData && (
+            {mapMode === 'state' && citiesData && (
               <GeoJSON
                 key="cities"
                 data={citiesData}
@@ -270,12 +454,12 @@ export function BrazilMap({
         {mapMode === 'country' && (
           <Card.Section p="md">
             <Text size="sm" c="dimmed">
-              💡 Clique em um município para ver seus dados detalhados e navegar para as cidades
+              💡 Clique em um estado ou município para ver dados detalhados. Use o botão nos tooltips para navegar para as cidades
             </Text>
           </Card.Section>
         )}
         
-        {mapMode === 'municipality' && (
+        {mapMode === 'state' && (
           <Card.Section p="md">
             <Text size="sm" c="dimmed">
               💡 Clique nas cidades (pontos amarelos) para ver dados específicos de cada uma
@@ -283,14 +467,6 @@ export function BrazilMap({
           </Card.Section>
         )}
       </Card>
-
-      <MunicipalityModal
-        opened={modalOpened}
-        onClose={() => setModalOpened(false)}
-        municipalityId={selectedMunicipalityId}
-        municipalityName={selectedMunicipalityName}
-        onShowCities={handleShowCities}
-      />
     </>
   );
 }
