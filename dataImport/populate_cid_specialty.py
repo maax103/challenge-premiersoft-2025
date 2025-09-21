@@ -28,13 +28,6 @@ class CidSpecialtyPopulator:
     def __init__(self, host=DB_HOST, port=DB_PORT, user=DB_USER, password=DB_PASSWORD, database=DB_NAME):
         """
         Inicializa o populador da tabela cid_specialty
-        
-        Args:
-            host (str): Host do MySQL
-            port (int): Porta do MySQL
-            user (str): Usuário do MySQL
-            password (str): Senha do MySQL
-            database (str): Nome do banco de dados
         """
         self.host = host
         self.port = port
@@ -67,53 +60,12 @@ class CidSpecialtyPopulator:
             self.connection.close()
             logging.info("Conexão fechada com sucesso")
     
-    def create_cid_specialty_table(self):
-        """Cria a tabela cid_specialty e specialties_unique se não existirem"""
-        try:
-            with self.connection.cursor() as cursor:
-                # Criar tabela de especialidades únicas se não existir
-                create_unique_specialties_sql = """
-                CREATE TABLE IF NOT EXISTS specialties_unique (
-                    id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-                    name VARCHAR(255) NOT NULL UNIQUE,
-                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-                    INDEX idx_name (name)
-                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-                """
-                cursor.execute(create_unique_specialties_sql)
-                logging.info("Tabela specialties_unique criada/verificada com sucesso")
-                
-                # Criar tabela cid_specialty
-                create_table_sql = """
-                CREATE TABLE IF NOT EXISTS cid_specialty (
-                    id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-                    cid_id BIGINT UNSIGNED NOT NULL,
-                    specialty_id BIGINT UNSIGNED NOT NULL,
-                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-                    UNIQUE KEY unique_cid_specialty (cid_id, specialty_id),
-                    INDEX idx_cid_id (cid_id),
-                    INDEX idx_specialty_id (specialty_id),
-                    FOREIGN KEY (cid_id) REFERENCES cids(id) ON DELETE CASCADE,
-                    FOREIGN KEY (specialty_id) REFERENCES specialties_unique(id) ON DELETE CASCADE
-                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-                """
-                cursor.execute(create_table_sql)
-                self.connection.commit()
-                logging.info("Tabela cid_specialty criada/verificada com sucesso")
-                return True
-        except Exception as e:
-            logging.error(f"Erro ao criar tabelas: {e}")
-            return False
-    
     def get_existing_cids(self):
         """Obtém todos os CIDs existentes no banco de dados"""
         try:
             with self.connection.cursor() as cursor:
                 cursor.execute("SELECT id, code FROM cids")
                 cids = cursor.fetchall()
-                # Criar dicionário code -> id
                 cid_dict = {cid['code']: cid['id'] for cid in cids}
                 logging.info(f"Encontrados {len(cid_dict)} códigos CID no banco")
                 return cid_dict
@@ -121,34 +73,6 @@ class CidSpecialtyPopulator:
             logging.error(f"Erro ao buscar CIDs existentes: {e}")
             return {}
     
-    def get_existing_specialties(self):
-        """Obtém todas as especialidades existentes no banco de dados"""
-        try:
-            with self.connection.cursor() as cursor:
-                # Como a tabela specialties tem hospital_id, vamos buscar especialidades únicas por nome
-                cursor.execute("SELECT DISTINCT name FROM specialties")
-                specialties = cursor.fetchall()
-                # Criar conjunto de nomes únicos
-                specialty_set = {spec['name'] for spec in specialties}
-                logging.info(f"Encontradas {len(specialty_set)} especialidades únicas no banco")
-                return specialty_set
-        except Exception as e:
-            logging.error(f"Erro ao buscar especialidades existentes: {e}")
-            return set()
-    
-    def get_unique_specialties_dict(self):
-        """Obtém todas as especialidades da tabela specialties_unique"""
-        try:
-            with self.connection.cursor() as cursor:
-                cursor.execute("SELECT id, name FROM specialties_unique")
-                specialties = cursor.fetchall()
-                # Criar dicionário name -> id
-                specialty_dict = {spec['name']: spec['id'] for spec in specialties}
-                logging.info(f"Encontradas {len(specialty_dict)} especialidades únicas na tabela specialties_unique")
-                return specialty_dict
-        except Exception as e:
-            logging.error(f"Erro ao buscar especialidades únicas: {e}")
-            return {}
     def populate_unique_specialties(self, unique_specialties):
         """Popula a tabela specialties_unique com especialidades únicas do CSV"""
         try:
@@ -156,7 +80,6 @@ class CidSpecialtyPopulator:
                 specialty_dict = {}
                 
                 for specialty in unique_specialties:
-                    # Tentar inserir ou obter ID se já existir
                     insert_sql = """
                     INSERT INTO specialties_unique (name, created_at, updated_at) 
                     VALUES (%s, NOW(), NOW())
@@ -165,7 +88,6 @@ class CidSpecialtyPopulator:
                     """
                     cursor.execute(insert_sql, (specialty,))
                     
-                    # Obter o ID da especialidade
                     cursor.execute("SELECT id FROM specialties_unique WHERE name = %s", (specialty,))
                     result = cursor.fetchone()
                     if result:
@@ -179,35 +101,6 @@ class CidSpecialtyPopulator:
             logging.error(f"Erro ao popular especialidades únicas: {e}")
             self.connection.rollback()
             return {}
-
-    def create_missing_specialties(self, unique_specialties, existing_specialties):
-        """Cria especialidades que não existem na tabela specialties_unique"""
-        missing_specialties = set(unique_specialties) - set(existing_specialties.keys())
-        
-        if not missing_specialties:
-            logging.info("Todas as especialidades já existem na tabela specialties_unique")
-            return existing_specialties
-        
-        try:
-            with self.connection.cursor() as cursor:
-                for specialty in missing_specialties:
-                    insert_sql = """
-                    INSERT INTO specialties_unique (name, created_at, updated_at) 
-                    VALUES (%s, NOW(), NOW())
-                    """
-                    cursor.execute(insert_sql, (specialty,))
-                    specialty_id = cursor.lastrowid
-                    existing_specialties[specialty] = specialty_id
-                    logging.info(f"Especialidade criada: {specialty} (ID: {specialty_id})")
-                
-                self.connection.commit()
-                logging.info(f"Criadas {len(missing_specialties)} novas especialidades na tabela specialties_unique")
-                
-        except Exception as e:
-            logging.error(f"Erro ao criar especialidades: {e}")
-            self.connection.rollback()
-        
-        return existing_specialties
     
     def load_relationships_from_csv(self):
         """Carrega os relacionamentos do arquivo CSV"""
@@ -218,7 +111,6 @@ class CidSpecialtyPopulator:
             return None
         
         try:
-            # Ler apenas as colunas necessárias
             df = pd.read_csv(csv_file, usecols=['especialidade', 'cid_codigo'])
             logging.info(f"Carregados {len(df)} registros do arquivo CSV")
             return df
@@ -231,12 +123,9 @@ class CidSpecialtyPopulator:
         relationships = set()
         
         for _, row in df.iterrows():
-            # Especialidades podem estar separadas por ';'
             specialties = [spec.strip() for spec in str(row['especialidade']).split(';')]
-            # CIDs podem estar separados por ';'
             cids = [cid.strip() for cid in str(row['cid_codigo']).split(';')]
             
-            # Criar relacionamento para cada combinação especialidade-CID
             for specialty in specialties:
                 for cid in cids:
                     if specialty in specialty_dict and cid in cid_dict:
@@ -252,18 +141,6 @@ class CidSpecialtyPopulator:
             return False
         
         try:
-            # Primeiro, limpar registros existentes se necessário
-            with self.connection.cursor() as cursor:
-                cursor.execute("SELECT COUNT(*) as count FROM cid_specialty")
-                existing_count = cursor.fetchone()['count']
-                
-                if existing_count > 0:
-                    logging.info(f"Encontrados {existing_count} registros existentes na tabela cid_specialty")
-                    # Opcionalmente, você pode escolher limpar a tabela ou fazer UPSERT
-                    # cursor.execute("DELETE FROM cid_specialty")
-                    # logging.info("Tabela cid_specialty limpa")
-            
-            # Inserir novos relacionamentos em lotes
             insert_sql = """
             INSERT IGNORE INTO cid_specialty (cid_id, specialty_id, created_at, updated_at) 
             VALUES (%s, %s, NOW(), NOW())
@@ -295,11 +172,9 @@ class CidSpecialtyPopulator:
         """Obtém estatísticas da tabela cid_specialty"""
         try:
             with self.connection.cursor() as cursor:
-                # Total de relacionamentos
                 cursor.execute("SELECT COUNT(*) as total FROM cid_specialty")
                 total = cursor.fetchone()['total']
                 
-                # Relacionamentos por especialidade
                 cursor.execute("""
                     SELECT s.name, COUNT(*) as count 
                     FROM cid_specialty cs 
@@ -325,29 +200,31 @@ class CidSpecialtyPopulator:
         """Executa o processo completo de população da tabela"""
         logging.info("Iniciando processo de população da tabela cid_specialty")
         
-        # Conectar ao banco
         if not self.connect():
             return False
         
         try:
-            # Criar tabela se não existir
-            if not self.create_cid_specialty_table():
-                return False
+            with self.connection.cursor() as cursor:
+                cursor.execute("SHOW TABLES LIKE 'specialties_unique'")
+                if not cursor.fetchone():
+                    logging.error("Tabela 'specialties_unique' não encontrada. Execute as migrações Laravel primeiro.")
+                    return False
+                
+                cursor.execute("SHOW TABLES LIKE 'cid_specialty'")
+                if not cursor.fetchone():
+                    logging.error("Tabela 'cid_specialty' não encontrada. Execute as migrações Laravel primeiro.")
+                    return False
             
-            # Obter CIDs e especialidades existentes
             cid_dict = self.get_existing_cids()
-            specialty_dict = self.get_unique_specialties_dict()
             
             if not cid_dict:
                 logging.error("Nenhum CID encontrado no banco. Execute primeiro a importação de CIDs.")
                 return False
             
-            # Carregar relacionamentos do CSV
             df = self.load_relationships_from_csv()
             if df is None:
                 return False
             
-            # Obter especialidades únicas do CSV
             all_specialties = set()
             for _, row in df.iterrows():
                 specialties = [spec.strip() for spec in str(row['especialidade']).split(';')]
@@ -355,15 +232,10 @@ class CidSpecialtyPopulator:
             
             logging.info(f"Encontradas {len(all_specialties)} especialidades únicas no CSV")
             
-            # Popular tabela specialties_unique com especialidades do CSV
             specialty_dict = self.populate_unique_specialties(all_specialties)
-            
-            # Processar relacionamentos
             relationships = self.process_relationships(df, cid_dict, specialty_dict)
             
-            # Inserir relacionamentos
             if self.insert_relationships(relationships):
-                # Mostrar estatísticas
                 self.get_statistics()
                 logging.info("Processo de população da tabela cid_specialty concluído com sucesso!")
                 return True
