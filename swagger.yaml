@@ -1,0 +1,635 @@
+openapi: 3.0.3
+info:
+  title: Sistema de Informações Geográficas e de Saúde
+  description: |
+    API RESTful para consulta de informações geográficas e de saúde do Brasil.
+    
+    Este sistema oferece endpoints para consultar dados sobre estados, cidades, hospitais, 
+    médicos, pacientes e classificações de doenças (CID-10), organizados geograficamente.
+    
+    **Funcionalidades principais:**
+    - Consulta de informações geográficas (estados e cidades)
+    - Estatísticas de saúde por localização
+    - Busca de médicos por especialidade
+    - Informações sobre CID-10 e prevalência de doenças
+    
+    **Padrão de Resposta:**
+    Todas as respostas seguem o formato padrão com `success`, `data` e `message`.
+  version: 1.0.0
+  contact:
+    name: Sistema de Saúde API
+    email: api@sistema-saude.gov.br
+  license:
+    name: MIT
+    url: https://opensource.org/licenses/MIT
+
+servers:
+  - url: http://localhost:8000/api
+    description: Servidor de desenvolvimento
+  - url: https://api.sistema-saude.gov.br/api
+    description: Servidor de produção
+
+paths:
+  /health:
+    get:
+      summary: Health Check
+      description: Verifica o status da API
+      tags:
+        - System
+      responses:
+        '200':
+          description: API funcionando corretamente
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: "ok"
+
+  /geography/states:
+    get:
+      summary: Listar todos os estados
+      description: Retorna a lista completa de estados brasileiros com informações básicas
+      tags:
+        - Geografia
+      responses:
+        '200':
+          description: Lista de estados retornada com sucesso
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/State'
+                  message:
+                    type: string
+                    example: "States fetched successfully"
+        '500':
+          $ref: '#/components/responses/ServerError'
+
+  /geography/states/{stateId}/stats:
+    get:
+      summary: Estatísticas de um estado
+      description: Retorna estatísticas detalhadas de um estado específico, incluindo população, cidades e recursos de saúde
+      tags:
+        - Geografia
+        - Estatísticas
+      parameters:
+        - name: stateId
+          in: path
+          required: true
+          description: ID único do estado (código UF do IBGE)
+          schema:
+            type: integer
+            example: 35
+      responses:
+        '200':
+          description: Estatísticas do estado retornadas com sucesso
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    $ref: '#/components/schemas/StateStats'
+                  message:
+                    type: string
+                    example: "State statistics fetched successfully"
+        '500':
+          $ref: '#/components/responses/ServerError'
+
+  /geography/states/{stateId}/cities:
+    get:
+      summary: Cidades por estado
+      description: Lista todas as cidades de um estado específico
+      tags:
+        - Geografia
+      parameters:
+        - name: stateId
+          in: path
+          required: true
+          description: ID único do estado (código UF do IBGE)
+          schema:
+            type: integer
+            example: 35
+      responses:
+        '200':
+          description: Lista de cidades retornada com sucesso
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/City'
+                  message:
+                    type: string
+                    example: "Cities fetched successfully"
+        '500':
+          $ref: '#/components/responses/ServerError'
+
+  /geography/cities/{cityId}:
+    get:
+      summary: Detalhes de uma cidade
+      description: Retorna informações detalhadas de uma cidade específica
+      tags:
+        - Geografia
+      parameters:
+        - name: cityId
+          in: path
+          required: true
+          description: ID único da cidade (código IBGE)
+          schema:
+            type: integer
+            example: 3550308
+      responses:
+        '200':
+          description: Detalhes da cidade retornados com sucesso
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    $ref: '#/components/schemas/CityDetails'
+                  message:
+                    type: string
+                    example: "City fetched successfully"
+        '404':
+          description: Cidade não encontrada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          $ref: '#/components/responses/ServerError'
+
+  /geography/cities/{cityId}/stats:
+    get:
+      summary: Estatísticas de uma cidade
+      description: Retorna estatísticas completas de uma cidade, incluindo hospitais, médicos, pacientes e doenças prevalentes
+      tags:
+        - Geografia
+        - Estatísticas
+      parameters:
+        - name: cityId
+          in: path
+          required: true
+          description: ID único da cidade (código IBGE)
+          schema:
+            type: integer
+            example: 3550308
+      responses:
+        '200':
+          description: Estatísticas da cidade retornadas com sucesso
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    $ref: '#/components/schemas/CityStats'
+                  message:
+                    type: string
+                    example: "City statistics fetched successfully"
+        '404':
+          description: Cidade não encontrada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          $ref: '#/components/responses/ServerError'
+
+  /geography/doctors/specialty/{specialty}:
+    get:
+      summary: Médicos por especialidade
+      description: Lista médicos de uma especialidade específica em todo o território nacional
+      tags:
+        - Recursos de Saúde
+      parameters:
+        - name: specialty
+          in: path
+          required: true
+          description: Nome da especialidade médica
+          schema:
+            type: string
+            example: "Cardiologia"
+      responses:
+        '200':
+          description: Lista de médicos retornada com sucesso
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Doctor'
+                  message:
+                    type: string
+                    example: "Doctors by specialty fetched successfully"
+        '500':
+          $ref: '#/components/responses/ServerError'
+
+  /geography/cids:
+    get:
+      summary: Lista de CIDs
+      description: Retorna a lista completa de códigos CID-10 disponíveis no sistema
+      tags:
+        - Classificações
+      responses:
+        '200':
+          description: Lista de CIDs retornada com sucesso
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/CID'
+                  message:
+                    type: string
+                    example: "CID list fetched successfully"
+        '500':
+          $ref: '#/components/responses/ServerError'
+
+components:
+  schemas:
+    State:
+      type: object
+      properties:
+        id:
+          type: integer
+          description: Código UF do IBGE
+          example: 35
+        uf:
+          type: string
+          description: Sigla do estado
+          example: "SP"
+        name:
+          type: string
+          description: Nome completo do estado
+          example: "São Paulo"
+        latitude:
+          type: number
+          format: float
+          description: Latitude do centro geográfico do estado
+          example: -23.55
+        longitude:
+          type: number
+          format: float
+          description: Longitude do centro geográfico do estado
+          example: -46.64
+        region:
+          type: string
+          description: Região geográfica brasileira
+          example: "Sudeste"
+
+    StateStats:
+      type: object
+      properties:
+        id:
+          type: integer
+          example: 35
+        name:
+          type: string
+          example: "São Paulo"
+        uf:
+          type: string
+          example: "SP"
+        totalCities:
+          type: integer
+          description: Total de cidades no estado
+          example: 645
+        totalPopulation:
+          type: integer
+          description: População total do estado
+          example: 46649132
+        averagePopulation:
+          type: integer
+          description: População média por cidade
+          example: 72325
+        largestCity:
+          type: string
+          description: Nome da maior cidade do estado
+          example: "São Paulo"
+        region:
+          type: string
+          example: "Sudeste"
+        coordinates:
+          type: object
+          properties:
+            latitude:
+              type: number
+              format: float
+              example: -23.55
+            longitude:
+              type: number
+              format: float
+              example: -46.64
+
+    City:
+      type: object
+      properties:
+        id:
+          type: integer
+          description: Código IBGE da cidade
+          example: 3550308
+        name:
+          type: string
+          description: Nome da cidade
+          example: "São Paulo"
+        latitude:
+          type: number
+          format: float
+          description: Latitude da cidade
+          example: -23.5489
+        longitude:
+          type: number
+          format: float
+          description: Longitude da cidade
+          example: -46.6388
+        is_capital:
+          type: boolean
+          description: Indica se a cidade é capital do estado
+          example: true
+        population:
+          type: integer
+          description: População da cidade
+          example: 12396372
+        state_id:
+          type: integer
+          description: ID do estado ao qual a cidade pertence
+          example: 35
+
+    CityDetails:
+      type: object
+      properties:
+        id:
+          type: integer
+          example: 3550308
+        name:
+          type: string
+          example: "São Paulo"
+        latitude:
+          type: number
+          format: float
+          example: -23.5489
+        longitude:
+          type: number
+          format: float
+          example: -46.6388
+        is_capital:
+          type: boolean
+          example: true
+        population:
+          type: integer
+          example: 12396372
+        state_id:
+          type: integer
+          example: 35
+        siafi_id:
+          type: integer
+          description: Código SIAFI da cidade
+          example: 7107
+        area_code:
+          type: integer
+          description: Código de área telefônico
+          example: 11
+        time_zone:
+          type: string
+          description: Fuso horário
+          example: "America/Sao_Paulo"
+
+    CityStats:
+      type: object
+      properties:
+        city:
+          $ref: '#/components/schemas/CityDetails'
+        hospitals:
+          type: array
+          description: Lista de hospitais na cidade
+          items:
+            $ref: '#/components/schemas/Hospital'
+        totalBeds:
+          type: integer
+          description: Total de leitos hospitalares
+          example: 1250
+        totalDoctors:
+          type: integer
+          description: Total de médicos na cidade
+          example: 9987
+        totalPatients:
+          type: integer
+          description: Total de pacientes cadastrados
+          example: 248927
+        patientsWithInsurance:
+          type: integer
+          description: Pacientes com convênio médico
+          example: 174249
+        doctorsBySpecialty:
+          type: object
+          description: Distribuição de médicos por especialidade
+          additionalProperties:
+            type: integer
+          example:
+            Cardiologia: 1999
+            Pediatria: 1997
+            Neurologia: 1967
+            Ortopedia: 1987
+            Dermatologia: 2037
+        commonDiseases:
+          type: array
+          description: Doenças mais comuns na cidade
+          items:
+            type: object
+            properties:
+              cid:
+                $ref: '#/components/schemas/CID'
+              count:
+                type: integer
+                description: Número de casos registrados
+                example: 156
+
+    Hospital:
+      type: object
+      properties:
+        id:
+          type: string
+          description: Identificador único do hospital
+          example: "hosp_3550308_1"
+        name:
+          type: string
+          description: Nome do hospital
+          example: "Hospital São José"
+        city:
+          type: integer
+          description: ID da cidade onde está localizado
+          example: 3550308
+        neighborhood:
+          type: string
+          description: Bairro onde está localizado
+          example: "Centro"
+        total_beds:
+          type: integer
+          description: Total de leitos disponíveis
+          example: 287
+        created_at:
+          type: string
+          format: date-time
+          description: Data de criação do registro
+          example: "2020-05-15 10:30:00"
+        updated_at:
+          type: string
+          format: date-time
+          description: Data da última atualização
+          example: "2024-12-10 14:22:33"
+
+    Doctor:
+      type: object
+      properties:
+        id:
+          type: string
+          description: Identificador único do médico
+          example: "doc_64f7a8b2c3d4e"
+        full_name:
+          type: string
+          description: Nome completo do médico
+          example: "Dr. João Silva"
+        specialty:
+          type: string
+          description: Especialidade médica
+          example: "Cardiologia"
+        city:
+          type: integer
+          description: ID da cidade onde atua
+          example: 3550308
+        created_at:
+          type: string
+          format: date-time
+          example: "2021-03-10 08:15:00"
+        updated_at:
+          type: string
+          format: date-time
+          example: "2024-11-20 16:45:12"
+
+    CID:
+      type: object
+      properties:
+        id:
+          type: integer
+          description: ID único do CID
+          example: 1
+        code:
+          type: string
+          description: Código CID-10
+          example: "I10"
+        name:
+          type: string
+          description: Descrição da doença/condição
+          example: "Hipertensão arterial"
+        created_at:
+          type: string
+          format: date-time
+          example: "2022-01-15 09:00:00"
+        updated_at:
+          type: string
+          format: date-time
+          example: "2024-10-05 11:30:00"
+
+    ErrorResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: false
+        message:
+          type: string
+          description: Mensagem de erro descritiva
+          example: "City not found"
+        data:
+          nullable: true
+          example: null
+        error:
+          type: string
+          description: Detalhes técnicos do erro (apenas em desenvolvimento)
+          example: "Record not found in database"
+
+  responses:
+    ServerError:
+      description: Erro interno do servidor
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            success: false
+            message: "Failed to fetch data"
+            error: "Database connection timeout"
+
+  parameters:
+    StateId:
+      name: stateId
+      in: path
+      required: true
+      description: ID único do estado (código UF do IBGE)
+      schema:
+        type: integer
+        minimum: 11
+        maximum: 53
+      example: 35
+
+    CityId:
+      name: cityId
+      in: path
+      required: true
+      description: ID único da cidade (código IBGE)
+      schema:
+        type: integer
+        minimum: 1100000
+        maximum: 5399999
+      example: 3550308
+
+tags:
+  - name: System
+    description: Endpoints de sistema e health check
+  - name: Geografia
+    description: Informações geográficas de estados e cidades
+  - name: Estatísticas
+    description: Dados estatísticos e análises demográficas
+  - name: Recursos de Saúde
+    description: Informações sobre hospitais, médicos e especialidades
+  - name: Classificações
+    description: Códigos CID-10 e classificações médicas
