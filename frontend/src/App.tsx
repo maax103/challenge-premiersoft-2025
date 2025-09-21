@@ -9,8 +9,6 @@ import { ActivityFeed } from './components/ActivityFeed'
 
 function App() {
   const [stats] = useState(generateRandomStats())
-  const [showStates, setShowStates] = useState(true)
-  const [showMunicipalities, setShowMunicipalities] = useState(false)
 
   const refreshData = () => {
     window.location.reload()
@@ -39,18 +37,6 @@ function App() {
       {/* Map and Chart Section */}
       <Grid mb="xl">
         <Grid.Col span={{ base: 12 }}>
-          <Group mb="md">
-            <Switch
-              label="Show States"
-              checked={showStates}
-              onChange={(event) => setShowStates(event.currentTarget.checked)}
-            />
-            <Switch
-              label="Show Municipalities"
-              checked={showMunicipalities}
-              onChange={(event) => setShowMunicipalities(event.currentTarget.checked)}
-            />
-          </Group>
           <BrazilMap />
         </Grid.Col>
         {/* <Grid.Col span={{ base: 12, lg: 4 }}>
