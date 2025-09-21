@@ -3,13 +3,14 @@
 namespace App\Domain\Geography\Actions;
 
 use App\Domain\Geography\Factories\CityDataFactory;
+use App\Models\City;
 use Illuminate\Support\Collection;
 
 class FetchCitiesByStateAction
 {
     public function execute(int $stateId): Collection
     {
-        $cities = CityDataFactory::getCitiesByState($stateId);
+        $cities = City::where('state_id', $stateId)->get();
         
         return collect($cities)->map(function ($city) {
             return [
