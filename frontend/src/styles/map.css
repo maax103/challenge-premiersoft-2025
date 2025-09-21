@@ -20,6 +20,23 @@
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
 }
 
+/* Custom tooltip styles */
+.leaflet-tooltip-custom {
+  background: rgba(0, 0, 0, 0.9) !important;
+  border: none !important;
+  border-radius: 6px !important;
+  color: white !important;
+  font-size: 12px !important;
+  font-weight: 500 !important;
+  padding: 6px 10px !important;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2) !important;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif !important;
+}
+
+.leaflet-tooltip-custom::before {
+  border-top-color: rgba(0, 0, 0, 0.9) !important;
+}
+
 /* Responsive popup styling */
 @media (max-width: 480px) {
   .custom-popup .leaflet-popup-content-wrapper {

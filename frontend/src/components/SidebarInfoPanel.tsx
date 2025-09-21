@@ -43,15 +43,14 @@ export default function SidebarInfoPanel({
     <Paper 
       shadow="sm" 
       p="md" 
-      style={{ 
-        height: '100%', 
-        overflowY: 'auto',
-        borderLeft: '1px solid #e9ecef'
+      style={{
+        maxHeight: 'calc(100vh - 100px)',
+        overflowY: 'scroll',
       }}
     >
-      <Stack gap="md" style={{ overflow: 'auto'}}>
-        {/* Header */}
-        <Group justify="space-between" align="center" >
+      <Stack gap="md">
+        {/* Header - Fixed */}
+        <Group>
           <Title order={3}>
             {isStateView && selectedCity ? 'Detalhes da Cidade' : 'Detalhes do Estado'}
           </Title>
@@ -66,8 +65,8 @@ export default function SidebarInfoPanel({
           )}
         </Group>
 
-        {/* Location Info */}
-        <Stack gap="xs">
+        {/* Location Info - Fixed */}
+        <Stack gap="xs" style={{ flexShrink: 0 }}>
           <Text size="lg" fw={600} c="blue">
             {stateName}
           </Text>
@@ -78,37 +77,37 @@ export default function SidebarInfoPanel({
           )}
         </Stack>
 
-        {/* Statistics Cards */}
+        {/* Statistics Cards - Scrollable */}
         <Stack gap="md">
-          <Text size="md" fw={500}>📊 Estatísticas</Text>
-          
-          {isStateView && selectedCity ? (
-            // City stats
-            <SimpleGrid cols={1} spacing="sm">
-              {createCityStatsCards(cityStats).map((stat, index) => (
-                <StatCard key={index} {...stat} />
-              ))}
-            </SimpleGrid>
-          ) : (
-            // State stats
-            <SimpleGrid cols={1} spacing="sm">
-              {createStateStatsCards(selectedStateStats).map((stat, index) => (
-                <StatCard key={index} {...stat} />
-              ))}
-              
-              {/* Drill down button for state view */}
-              {!isStateView && (
-                <Button 
-                  onClick={onDrilldown}
-                  variant="filled"
-                  size="sm"
-                  style={{ marginTop: '8px' }}
-                >
-                  Ver Municípios
-                </Button>
-              )}
-            </SimpleGrid>
-          )}
+          <Text size="md" fw={500} style={{ flexShrink: 0 }}>📊 Estatísticas</Text>
+        
+            {isStateView && selectedCity ? (
+              // City stats
+              <Stack gap="sm">
+                {createCityStatsCards(cityStats).map((stat, index) => (
+                  <StatCard key={index} {...stat} />
+                ))}
+              </Stack>
+            ) : (
+              // State stats
+              <Stack gap="sm">
+                {createStateStatsCards(selectedStateStats).map((stat, index) => (
+                  <StatCard key={index} {...stat} />
+                ))}
+                
+                {/* Drill down button for state view */}
+                {!isStateView && (
+                  <Button 
+                    onClick={onDrilldown}
+                    variant="filled"
+                    size="sm"
+                    style={{ marginTop: '8px' }}
+                  >
+                    Ver Municípios
+                  </Button>
+                )}
+              </Stack>
+            )}
         </Stack>
       </Stack>
     </Paper>

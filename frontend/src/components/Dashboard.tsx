@@ -97,6 +97,7 @@ export default function Dashboard({ onDrilldown }: DashboardProps) {
           <Group>
             <SearchBar 
               onCitySelect={handleCitySearch}
+              selectedState={selectedState}
               placeholder="🔍 Pesquisar cidades..."
             />
             <Button onClick={refreshData} variant="light">
@@ -107,7 +108,7 @@ export default function Dashboard({ onDrilldown }: DashboardProps) {
       </Paper>
 
       {/* Main Dashboard Content */}
-      <Box style={{ flex: 1, overflow: 'hidden' }}>
+      <Box style={{ flex: 1, overflowY: 'scroll', overflowX: 'hidden' }}>
         <Grid style={{ height: '100%', margin: 0 }} gutter="md">
           {/* Map Section */}
           <Grid.Col 
@@ -175,12 +176,6 @@ export default function Dashboard({ onDrilldown }: DashboardProps) {
           {selectedState && (
             <Grid.Col 
               span={4} 
-              style={{ 
-                height: '100%',
-                minHeight: 0,
-                display: 'flex',
-                flexDirection: 'column'
-              }}
             >
               <SidebarInfoPanel
                 selectedState={selectedState}

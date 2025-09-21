@@ -19,7 +19,7 @@ function LeafletMap({
   citiesGeoJson,
   isStateView,
   selectedState,
-  selectedCity,
+  selectedCity: _selectedCity,
   isLoading,
   onStateClick,
   onCityClick
@@ -77,6 +77,13 @@ function LeafletMap({
         const stateName = feature.properties?.name;
         
         if (stateCode && stateName) {
+          // Bind tooltip
+          layer.bindTooltip(stateName, {
+            permanent: false,
+            direction: 'top',
+            className: 'leaflet-tooltip-custom'
+          });
+
           layer.on('click', (e) => {
             L.DomEvent.stopPropagation(e);
             onStateClick(stateCode.toString());
@@ -137,6 +144,13 @@ function LeafletMap({
         const cityName = feature.properties?.name;
         
         if (cityId && cityName) {
+          // Bind tooltip
+          layer.bindTooltip(cityName, {
+            permanent: false,
+            direction: 'top',
+            className: 'leaflet-tooltip-custom'
+          });
+
           layer.on('click', (e) => {
             L.DomEvent.stopPropagation(e);
             onCityClick(cityId.toString());
@@ -219,6 +233,7 @@ function LeafletMap({
             transform: 'translate(-50%, -50%)',
             zIndex: 1000,
             background: 'rgba(255, 255, 255, 0.9)',
+            marginTop: '50px',
             padding: '16px',
             borderRadius: '8px',
             textAlign: 'center',
@@ -249,7 +264,7 @@ function LeafletMap({
           }}
         >
           <TileLayer
-            attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+            attribution='&copy; Premiersoft Challenge'
             url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
           />
         </MapContainer>

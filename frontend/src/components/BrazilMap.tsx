@@ -9,7 +9,7 @@ import {
 import StateInfoPanel from './StateInfoPanel';
 import CityInfoPanel from './CityInfoPanel';
 import SearchSidebar from './SearchSidebar';
-import LeafletMap from './LeafletMap';
+import LeafletMap from './LeafletMapOptimized';
 
 interface BrazilMapProps {
   onDrilldown?: (stateCode?: string, cityCode?: string) => void;
