@@ -1,11 +1,8 @@
 import './App.css'
-import { Container, Title, Grid, Space, Group, Button, Switch } from '@mantine/core'
+import { Container, Title, Grid, Group, Button } from '@mantine/core'
 import { useState } from 'react'
 import BrazilMap from './components/BrazilMap'
 import { StatCard, generateRandomStats } from './components/StatCard'
-import { DataTable } from './components/DataTable'
-import { ChartWidget } from './components/ChartWidget'
-import { ActivityFeed } from './components/ActivityFeed'
 
 function App() {
   const [stats] = useState(generateRandomStats())

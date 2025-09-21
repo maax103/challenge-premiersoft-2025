@@ -1,11 +1,5 @@
 import { Text, Box } from '@mantine/core';
-
-interface CityStats {
-  totalPatients: number;
-  hospitals: any[];
-  totalBeds: number;
-  totalDoctors: number;
-}
+import type { CityStats } from '../services/municipalityService';
 
 interface CityInfoPanelProps {
   selectedState: string;
