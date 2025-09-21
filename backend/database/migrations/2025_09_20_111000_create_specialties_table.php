@@ -12,8 +12,8 @@ return new class extends Migration
     public function up(): void
     {
         Schema::create('specialties', function (Blueprint $table) {
-            $table->uuid('id')->primary();
-            $table->uuid('hospital_id');
+            $table->id('id')->primary();
+            $table->unsignedBigInteger('hospital_id');
             $table->string('name');
             $table->timestamps();
 

@@ -71,7 +71,7 @@ services:
             MYSQL_PASSWORD: secret
             MYSQL_USER: laravel
         volumes:
-            - mysql:/var/lib/mysql
+            - mysql2:/var/lib/mysql
         ports:
             - "3306:3306"
         networks:
@@ -101,4 +101,6 @@ networks:
 
 volumes:
     mysql:
+        driver: local
+    mysql2:
         driver: local

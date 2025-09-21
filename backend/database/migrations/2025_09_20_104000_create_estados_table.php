@@ -12,11 +12,12 @@ return new class extends Migration
     public function up(): void
     {
         Schema::create('states', function (Blueprint $table) {
-            $table->unsignedSmallInteger('id')->primary();
+            $table->integer('codigo_uf')->primary();
             $table->string('uf', 2)->unique();
             $table->string('name');
             $table->decimal('latitude', 9, 6)->nullable();
             $table->decimal('longitude', 9, 6)->nullable();
+            $table->geometry('location')->nullable(); // Replace point with geometry
             $table->string('region', 32);
             $table->timestamps();
         });

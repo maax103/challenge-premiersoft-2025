@@ -11,13 +11,12 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::create('cids', function (Blueprint $table) {
-            $table->id('id')->primary();
-            $table->string('code', 10)->unique();
-            $table->string('name');
-            $table->timestamps();
-            $table->index('code');
-        });
+        try {
+            Schema::table('patients', function (Blueprint $table) {
+                $table->dropForeign(['city']);
+            });
+        } catch (\Throwable $e) {
+        }
     }
 
     /**
@@ -25,6 +24,6 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::dropIfExists('cids');
+        
     }
 };
