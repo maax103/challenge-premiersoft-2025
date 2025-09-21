@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Estado extends Model
 {
@@ -11,16 +12,24 @@ class Estado extends Model
 
     protected $table = 'states';
 
-    protected $primaryKey = 'id';
+    protected $primaryKey = 'codigo_uf';
     public $incrementing = false;
     protected $keyType = 'int';
 
     protected $fillable = [
-        'id', 'uf', 'name', 'latitude', 'longitude', 'region'
+        'codigo_uf', 'uf', 'name', 'latitude', 'longitude', 'location', 'region'
     ];
 
     protected $casts = [
         'latitude' => 'decimal:6',
         'longitude' => 'decimal:6',
     ];
+
+    /**
+     * Get the cities for this state.
+     */
+    public function cities(): HasMany
+    {
+        return $this->hasMany(City::class, 'state_id', 'codigo_uf');
+    }
 }
