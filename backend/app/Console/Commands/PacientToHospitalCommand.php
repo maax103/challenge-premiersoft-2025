@@ -63,4 +63,17 @@ class PacientToHospitalCommand extends Command
             }
         }
     }
+
+    private function getHospitalsInSameCity($patientCityCode)
+    {
+        try {
+            return DB::table('hospitals')
+                ->join('cities', 'hospitals.city', '=', 'cities.id')
+                ->where('cities.id', $patientCityCode)
+                ->select('hospitals.id', 'hospitals.name', 'hospitals.city', 'cities.name as city_name')
+                ->get();
+        } catch (\Exception $e) {
+            return collect();
+        }
+    }
 }
