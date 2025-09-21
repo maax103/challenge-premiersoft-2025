@@ -17,7 +17,7 @@ return new class extends Migration
             $table->string('codigo',255)->unique();
             $table->string('full_name');
             $table->string('gender', 1);
-            $table->unsignedInteger('city');
+            $table->unsignedInteger('city'); 
             $table->string('neighborhood');
             $table->boolean('has_insurance')->default(false);
             $table->foreignId('cid_id')->constrained('cids');

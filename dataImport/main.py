@@ -146,6 +146,9 @@ class DatabaseImporter:
             current_time = datetime.now()
             
             for _, row in df.iterrows():
+                # Create the POINT WKT string directly with the coordinates
+                point_wkt = f"POINT({float(row['longitude'])} {float(row['latitude'])})"
+                
                 data_tuple = (
                     int(row['codigo_uf']),  
                     row['uf'],              
@@ -153,21 +156,24 @@ class DatabaseImporter:
                     float(row['latitude']),  
                     float(row['longitude']), 
                     row['regiao'],          
-                    current_time,           
-                    current_time            
+                    current_time,
+                    point_wkt,  # Para o INSERT
+                    current_time,
+                    point_wkt   # Para o UPDATE            
                 )
                 data_list.append(data_tuple)
-            
-            # Query de inserção com ON DUPLICATE KEY UPDATE
+
+            # Query de inserção com ON DUPLICATE KEY UPDATE - corrigida
             insert_query = """
-                INSERT INTO states (id, uf, name, latitude, longitude, region, created_at, updated_at)
-                VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+                INSERT INTO states (codigo_uf, uf, name, latitude, longitude, region, created_at, location, updated_at)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, ST_GeomFromText(%s), %s)
                 ON DUPLICATE KEY UPDATE
                     uf = VALUES(uf),
                     name = VALUES(name),
                     latitude = VALUES(latitude),
                     longitude = VALUES(longitude),
                     region = VALUES(region),
+                    location = ST_GeomFromText(%s),
                     updated_at = VALUES(updated_at)
             """
             
@@ -177,6 +183,7 @@ class DatabaseImporter:
             return inserted_count
             
         except Exception as e:
+            logging.error(f"Erro ao importar estados: {e}")
             sys.exit(1)
     
     def import_hospitais_csv(self, csv_file_path, batch_size=100):
@@ -312,7 +319,7 @@ class DatabaseImporter:
         except Exception as e:
             sys.exit(1)
     
-    def import_xml_data(self, xml_file_path, batch_size=500):
+    def import_xml_data(self, xml_file_path, batch_size=10000):
         """
         Importa dados de arquivo XML (pacientes.xml) em modo iterativo para arquivos grandes.
         Versão otimizada com gestão avançada de memória.
@@ -390,11 +397,14 @@ class DatabaseImporter:
                     if cod_municipio.isdigit():
                         city_code = int(cod_municipio)
                         city_id = city_mapping.get(city_code)
+                        if not city_id:
+                            continue
                     
                     # Busca ID do CID-10
                     cid_id = None
                     if cid10_code:
                         cid_id = cid_mapping.get(cid10_code)
+                        cid_id = cid_mapping.get('R69') if cid_id is None else cid_id
 
                     data_tuple = (
                         codigo, cpf, nome, genero, city_id, bairro,
@@ -549,30 +559,37 @@ class DatabaseImporter:
             current_time = datetime.now()
             
             for _, row in df.iterrows():
+                # Create the POINT WKT string directly with the coordinates
+                point_wkt = f"POINT({float(row['longitude'])} {float(row['latitude'])})"
+                
                 data_tuple = (
-                    int(row['codigo_ibge']),     
-                    row['nome'],                 
-                    float(row['latitude']),      
-                    float(row['longitude']),     
-                    bool(row['capital']),        
-                    int(row['codigo_uf']),       
-                    int(row['siafi_id']),        
-                    int(row['ddd']),             
-                    row['fuso_horario'],         
-                    int(row['populacao']),       
-                    current_time,                
-                    current_time                 
+                    int(row['codigo_ibge']),     # city_code
+                    row['nome'],                 # name
+                    float(row['latitude']),      # latitude
+                    float(row['longitude']),     # longitude
+                    point_wkt,                   # location (WKT para INSERT)
+                    bool(row['capital']),        # is_capital
+                    int(row['codigo_uf']),       # state_id
+                    int(row['siafi_id']),        # siafi_id
+                    int(row['ddd']),             # area_code
+                    row['fuso_horario'],         # time_zone
+                    int(row['populacao']),       # population
+                    current_time,                # created_at
+                    current_time,                # updated_at
+                    point_wkt                    # location (WKT para UPDATE)
                 )
                 data_list.append(data_tuple)
             
-            # Query de inserção
+            # Query de inserção - ajustada conforme schema: id, city_code, name, latitude, longitude, location, is_capital, state_id, siafi_id, area_code, time_zone, population, created_at, updated_at
             insert_query = """
-                INSERT INTO cities ( city_code, name, latitude, longitude, is_capital, state_id, siafi_id, area_code, time_zone, population , created_at, updated_at)
-                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                INSERT INTO cities (
+                    city_code, name, latitude, longitude, location, is_capital, state_id, siafi_id, area_code, time_zone, population, created_at, updated_at
+                ) VALUES (%s, %s, %s, %s, ST_GeomFromText(%s), %s, %s, %s, %s, %s, %s, %s, %s)
                 ON DUPLICATE KEY UPDATE
                     name = VALUES(name),
                     latitude = VALUES(latitude),
                     longitude = VALUES(longitude),
+                    location = ST_GeomFromText(%s),
                     is_capital = VALUES(is_capital),
                     state_id = VALUES(state_id),
                     siafi_id = VALUES(siafi_id),
@@ -687,33 +704,30 @@ def main():
         count = 0
         # Importa estados
         if os.path.exists(FILES['estados']):
-            #count = importer.import_estados_csv(FILES['estados'])
+            importer.import_estados_csv(FILES['estados'])
             logging.info(f"Estados importados: {count}")
         
         # Importa municípios (antes dos hospitais devido à foreign key)
         if os.path.exists(FILES['municipios']):
-            #count = importer.import_municipios_csv(FILES['municipios'])
-            logging.info(f"Municípios importados: {count}")
+            importer.import_municipios_csv(FILES['municipios'])
+           
         
         if os.path.exists(FILES['hospitais']):
-            #count = importer.import_hospitais_csv(FILES['hospitais'])
-            logging.info(f"Hospitais importados: {count}")
-
+            importer.import_hospitais_csv(FILES['hospitais'])
+           
         if os.path.exists(FILES['medicos']):
-            #count = importer.import_medicos_csv(FILES['medicos'])
-            logging.info(f"Médicos importados: {count}")
+            importer.import_medicos_csv(FILES['medicos'])
+            
         
         if os.path.exists(FILES['hospitais']):
-            #count = importer.import_hospital_specialties(FILES['hospitais'])
-            logging.info(f"Especialidades importadas: {count}")
+            importer.import_hospital_specialties(FILES['hospitais'])
         
         # Importa Excel (CID-10)
         if os.path.exists(FILES['cid10']):
-            #count = importer.import_excel_data(FILES['cid10'])
-            logging.info(f"Registros Excel importados: {count}")
+            importer.import_excel_data(FILES['cid10'])
+
             
         if os.path.exists(FILES['pacientes']):
-            logging.info("Importando dados XML...")
             count = importer.import_xml_data(FILES['pacientes'])
             logging.info(f"Registros XML importados: {count}")
         else:

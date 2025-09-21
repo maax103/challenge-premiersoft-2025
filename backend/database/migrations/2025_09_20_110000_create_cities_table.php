@@ -17,8 +17,9 @@ return new class extends Migration
             $table->string('name');
             $table->decimal('latitude', 9, 6)->nullable();
             $table->decimal('longitude', 9, 6)->nullable();
+            $table->geometry('location')->nullable(); 
             $table->boolean('is_capital')->default(false);
-            $table->unsignedBigInteger('state_id');
+            $table->integer('state_id');
             $table->unsignedInteger('siafi_id');
             $table->unsignedSmallInteger('area_code');
             $table->string('time_zone');
@@ -28,7 +29,7 @@ return new class extends Migration
             $table->index('name');
 
             $table->foreign('state_id')
-                ->references('id')->on('states')
+                ->references('codigo_uf')->on('states')
                 ->onUpdate('cascade')
                 ->onDelete('restrict');
         });
