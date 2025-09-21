@@ -33,8 +33,8 @@ export default function StateInfoPanel({
   return (
     <Box style={{ 
       position: 'absolute', 
-      bottom: 10, 
-      right: 10, 
+      bottom: 120, 
+      right: 20, 
       background: 'white', 
       padding: '15px', 
       borderRadius: '8px',

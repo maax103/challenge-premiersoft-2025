@@ -3,6 +3,7 @@ import { createRoot } from 'react-dom/client'
 import './index.css'
 import '@mantine/core/styles.css'
 import 'leaflet/dist/leaflet.css'
+import './styles/map.css'
 import App from './App.tsx'
 import { MantineProvider } from '@mantine/core'
 

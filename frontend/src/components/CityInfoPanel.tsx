@@ -1,4 +1,4 @@
-import { Text, Box } from '@mantine/core';
+import { Text, Box, Button } from '@mantine/core';
 import type { CityStats } from '../services/municipalityService';
 
 interface CityInfoPanelProps {
@@ -7,6 +7,7 @@ interface CityInfoPanelProps {
   cityStats?: CityStats;
   citiesGeoJson?: any;
   topoJsonData?: any;
+  onBackToStates?: () => void;
 }
 
 export default function CityInfoPanel({ 
@@ -14,7 +15,8 @@ export default function CityInfoPanel({
   selectedCity, 
   cityStats, 
   citiesGeoJson, 
-  topoJsonData 
+  topoJsonData,
+  onBackToStates 
 }: CityInfoPanelProps) {
   const stateName = topoJsonData?.features?.find((f: any) => 
     f.properties?.codigo?.toString() === selectedState
@@ -27,8 +29,8 @@ export default function CityInfoPanel({
   return (
     <Box style={{ 
       position: 'absolute', 
-      bottom: 10, 
-      right: 10, 
+      bottom: 120, 
+      right: 20, 
       background: 'white', 
       padding: '15px', 
       borderRadius: '8px',
@@ -68,6 +70,18 @@ export default function CityInfoPanel({
             </Text>
           )}
         </>
+      )}
+      
+      {onBackToStates && (
+        <Button 
+          size="xs" 
+          fullWidth
+          onClick={onBackToStates}
+          style={{ marginTop: '8px' }}
+          variant="light"
+        >
+          ← Voltar ao Estado
+        </Button>
       )}
     </Box>
   );

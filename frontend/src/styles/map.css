@@ -1,3 +1,13 @@
+/* Leaflet map container - ensure proper sizing and positioning */
+.leaflet-container {
+  height: 100% !important;
+  width: 100% !important;
+  min-height: 500px !important;
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  z-index: 1;
+}
+
 /* Custom styles for Leaflet map popups */
 .custom-popup .leaflet-popup-content-wrapper {
   border-radius: 8px;
@@ -8,26 +18,6 @@
 .custom-popup .leaflet-popup-content {
   margin: 0;
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-}
-
-.custom-popup .leaflet-popup-tip {
-  border-top-color: #e5e7eb;
-}
-
-/* Hover effects for popup buttons */
-.custom-popup button:hover {
-  transform: scale(1.02) !important;
-  box-shadow: 0 2px 8px rgba(59, 130, 246, 0.3);
-}
-
-/* Map container styling */
-.leaflet-container {
-  border-radius: 6px;
-}
-
-/* Loading overlay adjustments */
-.mantine-LoadingOverlay-root {
-  border-radius: 6px;
 }
 
 /* Responsive popup styling */

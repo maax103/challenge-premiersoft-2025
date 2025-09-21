@@ -290,5 +290,46 @@ export const apiService = {
       created_at: cid.created_at,
       updated_at: cid.updated_at,
     }));
+  },
+
+  async fetchAllCities(): Promise<{city: City, state: State}[]> {
+    try {
+      // Fetch all states first, then fetch cities for each state
+      const states = await this.fetchAllStates();
+      const allCities: {city: City, state: State}[] = [];
+      
+      // Limit to a few states initially for performance
+      const limitedStates = states.slice(0, 5); // Only first 5 states for now
+      
+      for (const state of limitedStates) {
+        try {
+          const cities = await httpClient.get<any[]>(`/geography/states/${state.id}/cities`);
+          const citiesWithState = cities.map(city => ({
+            city: {
+              id: city.id,
+              name: city.name,
+              latitude: city.latitude,
+              longitude: city.longitude,
+              is_capital: city.is_capital || false,
+              state_id: city.state_id,
+              siafi_id: city.siafi_id || 0,
+              area_code: city.area_code || 0,
+              time_zone: city.time_zone || 'America/Sao_Paulo',
+              population: city.population || 0,
+            },
+            state: state
+          }));
+          allCities.push(...citiesWithState);
+        } catch (error) {
+          console.warn(`Failed to fetch cities for state ${state.name}:`, error);
+          // Continue with other states
+        }
+      }
+      
+      return allCities;
+    } catch (error) {
+      console.error('Failed to fetch all cities:', error);
+      return []; // Return empty array on error
+    }
   }
 };

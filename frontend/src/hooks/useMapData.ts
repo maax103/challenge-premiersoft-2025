@@ -39,6 +39,7 @@ const fetchers = {
   citiesByState: (stateId: number) => apiService.fetchCitiesByState(stateId),
   cityById: (cityId: number) => apiService.fetchCityById(cityId),
   allStates: () => apiService.fetchAllStates(),
+  allCities: () => apiService.fetchAllCities(),
 };
 
 // Custom hooks using SWR
@@ -62,14 +63,17 @@ export function useStateStats() {
   return { data, isLoading, isError: error, refetch: mutate };
 }
 
+// City stats hook with better caching
 export function useCityStats(cityId: number | null) {
   const { data, error, isLoading, mutate } = useSWR(
     cityId ? ['cityStats', cityId] : null,
     () => cityId ? fetchers.cityStats(cityId) : null,
     {
       revalidateOnFocus: false,
-      revalidateOnReconnect: true,
-      dedupingInterval: 60000, // 1 minute
+      revalidateOnReconnect: false, // Changed to false to reduce re-fetching
+      dedupingInterval: 5 * 60 * 1000, // 5 minutes cache
+      errorRetryCount: 1,
+      shouldRetryOnError: false,
     }
   );
 
@@ -219,5 +223,27 @@ export function useCitiesGeoJson(stateId: number | null) {
     citiesGeoJson,
     isLoading: municipalitiesLoading,
     isError: error,
+  };
+}
+
+// Hook for all cities for search functionality
+export function useAllCities() {
+  const { data, error, isLoading, mutate } = useSWR<{city: City, state: State}[]>(
+    'all-cities',
+    fetchers.allCities,
+    {
+      revalidateOnFocus: false,
+      revalidateOnReconnect: false,
+      dedupingInterval: 30 * 60 * 1000, // Cache for 30 minutes
+      errorRetryCount: 1, // Only retry once on error
+      shouldRetryOnError: false, // Don't retry on error to avoid infinite loops
+    }
+  );
+
+  return {
+    cities: data || [], // Always return an array, even if undefined
+    isLoading,
+    isError: error,
+    refetch: mutate,
   };
 }
