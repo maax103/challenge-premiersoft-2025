@@ -162,85 +162,216 @@ const generateCID = (): CID => ({
   updated_at: faker.date.recent().toISOString(),
 });
 
+// API Configuration
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api';
+
+// HTTP Client
+class HttpClient {
+  private baseUrl: string;
+
+  constructor(baseUrl: string) {
+    this.baseUrl = baseUrl;
+  }
+
+  private async request<T>(endpoint: string, options?: RequestInit): Promise<T> {
+    const url = `${this.baseUrl}${endpoint}`;
+    
+    const response = await fetch(url, {
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+        ...options?.headers,
+      },
+      ...options,
+    });
+
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+
+    const data = await response.json();
+    
+    // Handle Laravel API response format
+    if (data.success === false) {
+      throw new Error(data.message || 'API request failed');
+    }
+    
+    return data.data || data;
+  }
+
+  async get<T>(endpoint: string): Promise<T> {
+    return this.request<T>(endpoint, { method: 'GET' });
+  }
+
+  async post<T>(endpoint: string, body?: any): Promise<T> {
+    return this.request<T>(endpoint, {
+      method: 'POST',
+      body: body ? JSON.stringify(body) : undefined,
+    });
+  }
+
+  async put<T>(endpoint: string, body?: any): Promise<T> {
+    return this.request<T>(endpoint, {
+      method: 'PUT',
+      body: body ? JSON.stringify(body) : undefined,
+    });
+  }
+
+  async delete<T>(endpoint: string): Promise<T> {
+    return this.request<T>(endpoint, { method: 'DELETE' });
+  }
+}
+
+const httpClient = new HttpClient(API_BASE_URL);
+
 export const apiService = {
   async fetchStateStats(stateId: number): Promise<StateStats> {
-    // Simulate API call delay
-    await new Promise(resolve => setTimeout(resolve, 400));
+    const response = await httpClient.get<any>(`/geography/states/${stateId}/stats`);
     
-    const state = generateState(stateId);
-    const totalCities = faker.number.int({ min: 50, max: 853 });
-    const totalPopulation = faker.number.int({ min: 500000, max: 46000000 });
-    const totalHospitals = faker.number.int({ min: 20, max: 1000 });
-    const totalBeds = faker.number.int({ min: 5000, max: 50000 });
-    const totalDoctors = faker.number.int({ min: 1000, max: 20000 });
-    const totalPatients = faker.number.int({ min: 10000, max: 500000 });
-    
+    // Transform backend response to match frontend interface
     return {
-      state,
-      totalCities,
-      totalPopulation,
-      totalHospitals,
-      totalBeds,
-      totalDoctors,
-      totalPatients,
-      averagePopulationPerCity: Math.round(totalPopulation / totalCities),
+      state: {
+        id: response.id,
+        uf: response.uf,
+        name: response.name,
+        latitude: response.coordinates?.latitude || null,
+        longitude: response.coordinates?.longitude || null,
+        region: response.region,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      },
+      totalCities: response.totalCities,
+      totalPopulation: response.totalPopulation,
+      totalHospitals: faker.number.int({ min: 20, max: 1000 }), // Mock for now
+      totalBeds: faker.number.int({ min: 5000, max: 50000 }), // Mock for now
+      totalDoctors: faker.number.int({ min: 1000, max: 20000 }), // Mock for now
+      totalPatients: faker.number.int({ min: 10000, max: 500000 }), // Mock for now
+      averagePopulationPerCity: response.averagePopulation,
     };
   },
 
   async fetchCitiesByState(stateId: number): Promise<City[]> {
-    await new Promise(resolve => setTimeout(resolve, 300));
+    const cities = await httpClient.get<any[]>(`/geography/states/${stateId}/cities`);
     
-    return Array.from({ length: faker.number.int({ min: 5, max: 15 }) }, () => 
-      generateCity(stateId)
-    );
+    return cities.map(city => ({
+      id: city.id,
+      name: city.name,
+      latitude: city.latitude,
+      longitude: city.longitude,
+      is_capital: city.is_capital || false,
+      state_id: city.state_id,
+      siafi_id: city.siafi_id || 0,
+      area_code: city.area_code || 0,
+      time_zone: city.time_zone || 'America/Sao_Paulo',
+      population: city.population || 0,
+    }));
   },
 
-  async fetchCityById(_cityId: number): Promise<City> {
-    await new Promise(resolve => setTimeout(resolve, 200));
-    return generateCity(_cityId);
+  async fetchCityById(cityId: number): Promise<City> {
+    const city = await httpClient.get<any>(`/geography/cities/${cityId}`);
+    
+    return {
+      id: city.id,
+      name: city.name,
+      latitude: city.latitude,
+      longitude: city.longitude,
+      is_capital: city.is_capital || false,
+      state_id: city.state_id,
+      siafi_id: city.siafi_id || 0,
+      area_code: city.area_code || 0,
+      time_zone: city.time_zone || 'America/Sao_Paulo',
+      population: city.population || 0,
+    };
   },
 
   async fetchCityStats(cityId: number): Promise<CityStats> {
-    // Simulate API call delay
-    await new Promise(resolve => setTimeout(resolve, 500));
-    
-    const city = generateCity(cityId);
-    const hospitals = Array.from({ length: faker.number.int({ min: 1, max: 8 }) }, () => 
-      generateHospital()
-    );
-    
-    const totalBeds = hospitals.reduce((sum, hospital) => sum + hospital.total_beds, 0);
-    const totalDoctors = faker.number.int({ min: 50, max: 500 });
-    const totalPatients = faker.number.int({ min: 100, max: 2000 });
-    const patientsWithInsurance = faker.number.int({ min: 20, max: totalPatients });
-    
-    const specialties = ['Cardiologia', 'Pediatria', 'Neurologia', 'Ortopedia', 'Dermatologia'];
-    const doctorsBySpecialty: Record<string, number> = {};
-    specialties.forEach(specialty => {
-      doctorsBySpecialty[specialty] = faker.number.int({ min: 5, max: 50 });
-    });
-    
-    const commonDiseases = Array.from({ length: 5 }, () => ({
-      cid: generateCID(),
-      count: faker.number.int({ min: 10, max: 100 })
-    }));
-    
-    return {
-      city,
-      hospitals,
-      totalBeds,
-      totalDoctors,
-      totalPatients,
-      patientsWithInsurance,
-      doctorsBySpecialty,
-      commonDiseases,
-    };
+    try {
+      const response = await httpClient.get<any>(`/geography/cities/${cityId}/stats`);
+      
+      // For now, combine real city data with mock stats since backend doesn't have all stats yet
+      const city = await this.fetchCityById(cityId);
+      
+      const hospitals = Array.from({ length: faker.number.int({ min: 1, max: 8 }) }, () => 
+        generateHospital()
+      );
+      
+      const totalBeds = hospitals.reduce((sum, hospital) => sum + hospital.total_beds, 0);
+      const totalDoctors = faker.number.int({ min: 50, max: 500 });
+      const totalPatients = faker.number.int({ min: 100, max: 2000 });
+      const patientsWithInsurance = faker.number.int({ min: 20, max: totalPatients });
+      
+      const specialties = ['Cardiologia', 'Pediatria', 'Neurologia', 'Ortopedia', 'Dermatologia'];
+      const doctorsBySpecialty: Record<string, number> = {};
+      specialties.forEach(specialty => {
+        doctorsBySpecialty[specialty] = faker.number.int({ min: 5, max: 50 });
+      });
+      
+      const commonDiseases = Array.from({ length: 5 }, () => ({
+        cid: generateCID(),
+        count: faker.number.int({ min: 10, max: 100 })
+      }));
+      
+      return {
+        city,
+        hospitals,
+        totalBeds,
+        totalDoctors,
+        totalPatients,
+        patientsWithInsurance,
+        doctorsBySpecialty,
+        commonDiseases,
+      };
+    } catch (error) {
+      console.warn('Failed to fetch city stats from API, falling back to mock data:', error);
+      // Fallback to mock data if API fails
+      const city = generateCity(cityId);
+      const hospitals = Array.from({ length: faker.number.int({ min: 1, max: 8 }) }, () => 
+        generateHospital()
+      );
+      
+      const totalBeds = hospitals.reduce((sum, hospital) => sum + hospital.total_beds, 0);
+      const totalDoctors = faker.number.int({ min: 50, max: 500 });
+      const totalPatients = faker.number.int({ min: 100, max: 2000 });
+      const patientsWithInsurance = faker.number.int({ min: 20, max: totalPatients });
+      
+      const specialties = ['Cardiologia', 'Pediatria', 'Neurologia', 'Ortopedia', 'Dermatologia'];
+      const doctorsBySpecialty: Record<string, number> = {};
+      specialties.forEach(specialty => {
+        doctorsBySpecialty[specialty] = faker.number.int({ min: 5, max: 50 });
+      });
+      
+      const commonDiseases = Array.from({ length: 5 }, () => ({
+        cid: generateCID(),
+        count: faker.number.int({ min: 10, max: 100 })
+      }));
+      
+      return {
+        city,
+        hospitals,
+        totalBeds,
+        totalDoctors,
+        totalPatients,
+        patientsWithInsurance,
+        doctorsBySpecialty,
+        commonDiseases,
+      };
+    }
   },
 
   // Additional utility methods
   async fetchAllStates(): Promise<State[]> {
-    await new Promise(resolve => setTimeout(resolve, 300));
-    return Array.from({ length: 27 }, (_, i) => generateState(i + 1));
+    const states = await httpClient.get<any[]>('/geography/states');
+    
+    return states.map(state => ({
+      id: state.id,
+      uf: state.uf,
+      name: state.name,
+      latitude: state.latitude,
+      longitude: state.longitude,
+      region: state.region,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    }));
   },
 
   async fetchHospitalsByCity(_cityId: number): Promise<Hospital[]> {

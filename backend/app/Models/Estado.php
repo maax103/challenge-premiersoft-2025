@@ -9,13 +9,18 @@ class Estado extends Model
 {
     use HasFactory;
 
-    protected $table = 'estados';
+    protected $table = 'states';
 
-    protected $primaryKey = 'codigo_uf';
+    protected $primaryKey = 'id';
     public $incrementing = false;
     protected $keyType = 'int';
 
     protected $fillable = [
-        'codigo_uf', 'uf', 'nome', 'latitude', 'longitude', 'regiao'
+        'id', 'uf', 'name', 'latitude', 'longitude', 'region'
+    ];
+
+    protected $casts = [
+        'latitude' => 'decimal:6',
+        'longitude' => 'decimal:6',
     ];
 }

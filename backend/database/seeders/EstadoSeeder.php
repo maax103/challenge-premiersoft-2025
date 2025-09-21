@@ -42,12 +42,12 @@ class EstadoSeeder extends Seeder
             }
             [$codigoUf, $uf, $nome, $latitude, $longitude, $regiao] = $row;
             $data[] = [
-                'codigo_uf' => (int) $codigoUf,
+                'id' => (int) $codigoUf, // map codigo_uf to id
                 'uf' => trim($uf),
-                'nome' => trim($nome),
+                'name' => trim($nome), // map nome to name
                 'latitude' => $latitude !== '' ? (float) $latitude : null,
                 'longitude' => $longitude !== '' ? (float) $longitude : null,
-                'regiao' => trim($regiao),
+                'region' => trim($regiao), // map regiao to region
                 'created_at' => $now,
                 'updated_at' => $now,
             ];
@@ -55,10 +55,10 @@ class EstadoSeeder extends Seeder
 
         if (!empty($data)) {
             // Use upsert to avoid duplicates on repeated seeding runs
-            DB::table('estados')->upsert(
+            DB::table('states')->upsert(
                 $data,
-                ['codigo_uf'],
-                ['uf','nome','latitude','longitude','regiao','updated_at']
+                ['id'],
+                ['uf','name','latitude','longitude','region','updated_at']
             );
             $this->command?->info('Estados importados com sucesso.');
         } else {
